@@ -8,7 +8,7 @@ on:
 
 env:
   PROJECT_ID: "your-client-gcp-project"
-  REGION: "us-central1"
+  REGION: "us-west1"
   SERVICE_NAME: "cashflow-rag-backend"
   ENVIRONMENT: "production"
 
@@ -17,7 +17,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: production
-      url: https://your-service-url.run.app
+      url: https://cashflow-rag-backend.us-west1.run.app
     permissions:
       contents: read
       id-token: write
@@ -74,28 +74,28 @@ jobs:
       - name: Build & push container image
         id: build
         run: |
-          IMAGE="us-central1-docker.pkg.dev/${{ env.PROJECT_ID }}/codebase-repo/${{ env.SERVICE_NAME }}:${{ github.sha }}"
+          IMAGE="us-west1-docker.pkg.dev/${{ env.PROJECT_ID }}/codebase-repo/${{ env.SERVICE_NAME }}:${{ github.sha }}"
           echo "image=$IMAGE" >> $GITHUB_OUTPUT
-          gcloud auth configure-docker us-central1-docker.pkg.dev --quiet
+          gcloud auth configure-docker us-west1-docker.pkg.dev --quiet
           docker buildx build \
             --platform linux/amd64 \
             --tag "$IMAGE" \
             --push \
             .
 
-      # 9️. Deploy to Cloud Run
-      - name: Deploy Cloud Run service
-        run: |
-          gcloud run deploy ${{ env.SERVICE_NAME }} \
-            --image "${{ steps.build.outputs.image }}" \
-            --platform managed \
-            --region ${{ env.REGION }} \
-            --allow-unauthenticated \
-            --service-account ${{ secrets.GCP_SA_EMAIL }} \
-            --quiet
+      # # 9️. Deploy to Cloud Run
+      # - name: Deploy Cloud Run service
+      #   run: |
+      #     gcloud run deploy ${{ env.SERVICE_NAME }} \
+      #       --image "${{ steps.build.outputs.image }}" \
+      #       --platform managed \
+      #       --region ${{ env.REGION }} \
+      #       --allow-unauthenticated \
+      #       --service-account ${{ secrets.GCP_SA_EMAIL }} \
+      #       --quiet
 
-      # 1️0️. Output Cloud Run URL
-      - name: Cloud Run URL
-        run: |
-          SERVICE_URL=$(gcloud run services describe ${{ env.SERVICE_NAME }} --region=${{ env.REGION }} --format="value(status.url)")
-          echo "Your backend is live at: $SERVICE_URL"
+      # # 1️0️. Output Cloud Run URL
+      # - name: Cloud Run URL
+      #   run: |
+      #     SERVICE_URL=$(gcloud run services describe ${{ env.SERVICE_NAME }} --region=${{ env.REGION }} --format="value(status.url)")
+      #     echo "Your backend is live at: $SERVICE_URL"

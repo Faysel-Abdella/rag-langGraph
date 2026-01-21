@@ -1,16 +1,27 @@
-FROM node:20-slim
+# ---------- Build stage ----------
+FROM node:20-alpine AS builder
+
+WORKDIR /app
+
+COPY package*.json ./
+RUN npm install
+
+COPY tsconfig.json ./
+COPY src ./src
+
+RUN npx tsc
+
+# ---------- Runtime stage ----------
+FROM node:20-alpine
 
 WORKDIR /app
 
 COPY package*.json ./
 RUN npm install --production
 
-COPY src ./src
-COPY tsconfig.json ./
-
-RUN npx tsc
+COPY --from=builder /app/dist ./dist
 
 ENV PORT=8080
 EXPOSE 8080
 
-CMD ["node", "src/dist/server.js"]
+CMD ["node", "dist/server.js"]
