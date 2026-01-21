@@ -1,0 +1,864 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Dashboard - AI Chatbot</title>
+  <style>
+    /* ============================================
+       THEME & VARIABLES
+       ============================================ */
+    :root {
+      --primary: #CA9D2B;
+      --dark: #151C28;
+      --light: #f8f9fa;
+      --border: #e9ecef;
+      --text: #212529;
+      --text-light: #6c757d;
+      --success: #27ae60;
+      --warning: #f39c12;
+      --sidebar-width: 260px;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html, body {
+      height: 100%;
+      background: var(--light);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', sans-serif;
+      color: var(--text);
+    }
+
+    .admin-container {
+      display: flex;
+      height: 100vh;
+    }
+
+    /* ============================================
+       SIDEBAR
+       ============================================ */
+    .sidebar {
+      width: var(--sidebar-width);
+      background: linear-gradient(180deg, var(--dark) 0%, #1a2332 100%);
+      color: white;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 2px 0 8px rgba(0, 0, 0, 0.15);
+      position: fixed;
+      height: 100vh;
+      left: 0;
+      top: 0;
+      z-index: 100;
+      overflow-y: auto;
+    }
+
+    .sidebar-header {
+      padding: 24px 16px;
+      border-bottom: 2px solid var(--primary);
+    }
+
+    .sidebar-header h2 {
+      font-size: 18px;
+      font-weight: 700;
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .sidebar-header h2 svg {
+      width: 20px;
+      height: 20px;
+    }
+
+    .phase-badge {
+      font-size: 11px;
+      background: rgba(202, 157, 43, 0.2);
+      color: var(--primary);
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-weight: 600;
+      display: inline-block;
+    }
+
+    .sidebar-nav {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      padding: 12px 8px;
+      gap: 4px;
+    }
+
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 16px;
+      color: rgba(255, 255, 255, 0.7);
+      text-decoration: none;
+      border-radius: 8px;
+      transition: all 0.3s ease;
+      cursor: pointer;
+      border-left: 3px solid transparent;
+    }
+
+    .nav-item:hover {
+      background: rgba(202, 157, 43, 0.1);
+      color: white;
+    }
+
+    .nav-item.active {
+      background: rgba(202, 157, 43, 0.2);
+      color: var(--primary);
+      border-left-color: var(--primary);
+    }
+
+    .nav-item svg {
+      width: 18px;
+      height: 18px;
+      flex-shrink: 0;
+    }
+
+    .sidebar-footer {
+      padding: 16px;
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .logout-btn {
+      width: 100%;
+      padding: 12px;
+      background: rgba(202, 157, 43, 0.2);
+      color: white;
+      border: 1px solid var(--primary);
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 600;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .logout-btn:hover {
+      background: var(--primary);
+    }
+
+    .logout-btn svg {
+      width: 16px;
+      height: 16px;
+    }
+
+    /* ============================================
+       MAIN CONTENT
+       ============================================ */
+    .main-content {
+      margin-left: var(--sidebar-width);
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .page-header {
+      background: white;
+      padding: 20px 30px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    }
+
+    .page-header h1 {
+      font-size: 28px;
+      font-weight: 700;
+      color: var(--dark);
+      margin: 0;
+    }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+
+    .health-status {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      color: var(--text-light);
+    }
+
+    .status-indicator {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--success);
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    .user-info {
+      font-size: 13px;
+      color: var(--text-light);
+      padding: 8px 12px;
+      background: var(--light);
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .user-info svg {
+      width: 16px;
+      height: 16px;
+    }
+
+    .page-content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 30px;
+    }
+
+    .page-section {
+      display: none;
+    }
+
+    .page-section.active {
+      display: block;
+    }
+
+    /* ============================================
+       DASHBOARD STATS
+       ============================================ */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 20px;
+      margin-bottom: 30px;
+    }
+
+    .stat-card {
+      background: white;
+      padding: 24px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+      transition: all 0.3s ease;
+    }
+
+    .stat-card:hover {
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+      transform: translateY(-2px);
+    }
+
+    .stat-icon {
+      width: 28px;
+      height: 28px;
+      color: var(--primary);
+      margin-bottom: 12px;
+    }
+
+    .stat-label {
+      font-size: 13px;
+      color: var(--text-light);
+      margin-bottom: 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      font-weight: 600;
+    }
+
+    .stat-value {
+      font-size: 32px;
+      font-weight: 700;
+      color: var(--dark);
+    }
+
+    .stat-trend {
+      font-size: 12px;
+      margin-top: 8px;
+      color: var(--success);
+      font-weight: 600;
+    }
+
+    /* ============================================
+       CARDS & CONTENT
+       ============================================ */
+    .card {
+      background: white;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      padding: 24px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    }
+
+    .card-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--dark);
+      margin-bottom: 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .card-title svg {
+      width: 20px;
+      height: 20px;
+      margin-right: 8px;
+    }
+
+    .card-badge {
+      background: rgba(202, 157, 43, 0.1);
+      color: var(--primary);
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .btn {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--primary) 0%, #b88621 100%);
+      color: white;
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(202, 157, 43, 0.3);
+    }
+
+    .btn-secondary {
+      background: var(--light);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+
+    .btn-secondary:hover {
+      background: white;
+      border-color: var(--primary);
+    }
+
+    /* ============================================
+       TABLES
+       ============================================ */
+    .table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    .table thead {
+      background: var(--light);
+      border-bottom: 2px solid var(--border);
+    }
+
+    .table th {
+      padding: 12px;
+      text-align: left;
+      font-weight: 600;
+      color: var(--text);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      font-size: 11px;
+    }
+
+    .table td {
+      padding: 14px 12px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .table tbody tr:hover {
+      background: var(--light);
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+
+    .badge-success {
+      background: rgba(39, 174, 96, 0.1);
+      color: var(--success);
+    }
+
+    .badge-warning {
+      background: rgba(243, 156, 18, 0.1);
+      color: var(--warning);
+    }
+
+    .badge-pending {
+      background: rgba(202, 157, 43, 0.1);
+      color: var(--primary);
+    }
+
+    /* ============================================
+       UPLOAD AREA
+       ============================================ */
+    .upload-area {
+      border: 2px dashed var(--primary);
+      border-radius: 8px;
+      padding: 40px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.3s;
+      background: rgba(202, 157, 43, 0.02);
+    }
+
+    .upload-area:hover {
+      background: rgba(202, 157, 43, 0.05);
+      border-color: var(--dark);
+    }
+
+    .upload-icon {
+      font-size: 40px;
+      margin-bottom: 12px;
+      width: 40px;
+      height: 40px;
+      margin-left: auto;
+      margin-right: auto;
+      color: var(--primary);
+    }
+
+    .upload-text {
+      font-size: 14px;
+      color: var(--text);
+      margin-bottom: 8px;
+      font-weight: 600;
+    }
+
+    .upload-hint {
+      font-size: 12px;
+      color: var(--text-light);
+    }
+
+    /* ============================================
+       PLACEHOLDER
+       ============================================ */
+    .placeholder-content {
+      background: var(--light);
+      padding: 40px;
+      border-radius: 8px;
+      text-align: center;
+      color: var(--text-light);
+    }
+
+    .placeholder-icon {
+      width: 48px;
+      height: 48px;
+      margin: 0 auto 16px;
+      color: var(--text-light);
+    }
+
+    /* ============================================
+       RESPONSIVE
+       ============================================ */
+    @media (max-width: 768px) {
+      .sidebar {
+        width: 200px;
+        --sidebar-width: 200px;
+      }
+
+      .stats-grid {
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      }
+
+      .page-header {
+        padding: 16px 20px;
+      }
+
+      .page-header h1 {
+        font-size: 22px;
+      }
+
+      .page-content {
+        padding: 20px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="admin-container">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <h2>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm-2-13h4v6h-4zm0 8h4v2h-4z"/>
+          </svg>
+          Chatbot
+        </h2>
+        <p class="phase-badge">Phase 1 - Preview</p>
+      </div>
+
+      <nav class="sidebar-nav">
+        <a href="#" data-page="dashboard" class="nav-item active">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="12" y1="2" x2="12" y2="22"></line>
+            <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+          </svg>
+          <span>Dashboard</span>
+        </a>
+        <a href="#" data-page="knowledge" class="nav-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+            <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+          </svg>
+          <span>Knowledge Base</span>
+        </a>
+        <a href="#" data-page="conversations" class="nav-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+          </svg>
+          <span>Conversations</span>
+        </a>
+        <a href="#" data-page="escalations" class="nav-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+          </svg>
+          <span>Escalations</span>
+        </a>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div style="padding: 12px 16px; border-top: 1px solid rgba(255,255,255,0.1); margin-bottom: 12px;">
+          <p style="font-size: 11px; color: rgba(255,255,255,0.6); margin-bottom: 4px;">LOGGED IN AS</p>
+          <p class="user-email" style="font-size: 13px; color: white; font-weight: 600; word-break: break-all;">admin@example.com</p>
+        </div>
+        <button class="logout-btn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+            <polyline points="16 17 21 12 16 7"></polyline>
+            <line x1="21" y1="12" x2="9" y2="12"></line>
+          </svg>
+          Logout
+        </button>
+      </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      <header class="page-header">
+        <h1 id="page-title">Dashboard</h1>
+        <div class="header-right">
+          <span class="health-status">
+            <span class="status-indicator"></span>
+            System OK
+          </span>
+          <span class="user-info">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+              <circle cx="12" cy="7" r="4"></circle>
+            </svg>
+            Admin
+          </span>
+        </div>
+      </header>
+
+      <div class="page-content">
+        <!-- Dashboard -->
+        <section id="dashboard" class="page-section active">
+          <div class="stats-grid">
+            <div class="stat-card">
+              <svg class="stat-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+              </svg>
+              <div class="stat-label">Total Messages</div>
+              <div class="stat-value">1,284</div>
+              <div class="stat-trend">↑ 12% from last week</div>
+            </div>
+
+            <div class="stat-card">
+              <svg class="stat-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+              <div class="stat-label">Resolved</div>
+              <div class="stat-value">92%</div>
+              <div class="stat-trend">↑ 3% improvement</div>
+            </div>
+
+            <div class="stat-card">
+              <svg class="stat-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="1"></circle>
+                <path d="M12 1v6m0 6v6M4.22 4.22l4.24 4.24m2.12 2.12l4.24 4.24M1 12h6m6 0h6M4.22 19.78l4.24-4.24m2.12-2.12l4.24-4.24M19.78 19.78l-4.24-4.24m-2.12-2.12l-4.24-4.24M19.78 4.22l-4.24 4.24m-2.12 2.12l-4.24 4.24"/>
+              </svg>
+              <div class="stat-label">Avg Response</div>
+              <div class="stat-value">0.8s</div>
+              <div class="stat-trend">↑ Optimized</div>
+            </div>
+
+            <div class="stat-card">
+              <svg class="stat-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+                <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+              </svg>
+              <div class="stat-label">Knowledge Base</div>
+              <div class="stat-value">47</div>
+              <div class="stat-trend">Documents indexed</div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-title">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="23 6 13.5 15.5 8.5 10.5 1 17"></polyline>
+                <polyline points="17 6 23 6 23 12"></polyline>
+              </svg>
+              Recent Activity
+              <span class="card-badge">Live</span>
+            </div>
+            <div class="placeholder-content">
+              <svg class="placeholder-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="23 6 13.5 15.5 8.5 10.5 1 17"></polyline>
+                <polyline points="17 6 23 6 23 12"></polyline>
+              </svg>
+              <p><strong>Phase 2:</strong> Real-time activity graphs coming soon</p>
+            </div>
+          </div>
+        </section>
+
+        <!-- Knowledge Base -->
+        <section id="knowledge" class="page-section">
+          <div class="card">
+            <div class="card-title">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+                <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+              </svg>
+              Upload Documents
+            </div>
+            <div class="upload-area">
+              <svg class="upload-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="17 8 12 3 7 8"></polyline>
+                <line x1="12" y1="3" x2="12" y2="15"></line>
+              </svg>
+              <div class="upload-text">Click or drag files here</div>
+              <div class="upload-hint">Supported: PDF, DOCX, TXT (Max 10MB)</div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-title">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+                <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+              </svg>
+              Uploaded Documents
+              <button class="btn btn-secondary">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 14px; height: 14px;">
+                  <path d="M23 4v6h-6"></path>
+                  <path d="M1 20v-6h6"></path>
+                  <path d="M3.51 9a9 9 0 0 1 14.85-4M20.49 15a9 9 0 0 1-14.85 4"></path>
+                </svg>
+                Re-index
+              </button>
+            </div>
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>Document</th>
+                  <th>Type</th>
+                  <th>Size</th>
+                  <th>Status</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Pricing Guide.pdf</td>
+                  <td>PDF</td>
+                  <td>2.4 MB</td>
+                  <td><span class="badge badge-success">Indexed</span></td>
+                  <td><button class="btn btn-secondary" style="padding: 6px 12px; font-size: 12px;">Delete</button></td>
+                </tr>
+                <tr>
+                  <td>FAQ.docx</td>
+                  <td>DOCX</td>
+                  <td>1.1 MB</td>
+                  <td><span class="badge badge-success">Indexed</span></td>
+                  <td><button class="btn btn-secondary" style="padding: 6px 12px; font-size: 12px;">Delete</button></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="placeholder-content">
+            <svg class="placeholder-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 5v14M5 12h14"></path>
+            </svg>
+            <p><strong>Phase 3:</strong> Full document management and vector search</p>
+          </div>
+        </section>
+
+        <!-- Conversations -->
+        <section id="conversations" class="page-section">
+          <div class="card">
+            <div class="card-title">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+              </svg>
+              Recent Conversations
+            </div>
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>User Question</th>
+                  <th>Quality</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Today 2:34 PM</td>
+                  <td>"How do I reset my password?"</td>
+                  <td><span class="badge badge-success">Accurate</span></td>
+                  <td>✓ Resolved</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="placeholder-content">
+            <svg class="placeholder-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+            </svg>
+            <p><strong>Phase 2:</strong> Real conversation data from RAG pipeline</p>
+          </div>
+        </section>
+
+        <!-- Escalations -->
+        <section id="escalations" class="page-section">
+          <div class="card">
+            <div class="card-title">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+              </svg>
+              Escalated Issues
+            </div>
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>User</th>
+                  <th>Issue</th>
+                  <th>Reason</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Today 3:15 PM</td>
+                  <td>john@example.com</td>
+                  <td>"Complex question"</td>
+                  <td><span class="badge badge-pending">Low Confidence</span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="placeholder-content">
+            <svg class="placeholder-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+              <circle cx="12" cy="7" r="4"></circle>
+            </svg>
+            <p><strong>Phase 3:</strong> Escalation management and tracking</p>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    // ============================================
+    // AUTHENTICATION CHECK
+    // ============================================
+    function checkAdminAuth() {
+      const isLoggedIn = sessionStorage.getItem('adminLoggedIn');
+      const adminEmail = sessionStorage.getItem('adminEmail');
+
+      if (!isLoggedIn || !adminEmail) {
+        // Redirect to login if not authenticated
+        window.location.href = '/admin/login';
+        return false;
+      }
+
+      // Update user info in header
+      const userEmailElement = document.querySelector('.user-email');
+      if (userEmailElement) {
+        userEmailElement.textContent = adminEmail;
+      }
+
+      return true;
+    }
+
+    // Check auth on page load
+    if (!checkAdminAuth()) {
+      throw new Error('Not authenticated');
+    }
+
+    // ============================================
+    // NAVIGATION & LOGOUT
+    // ============================================
+    document.querySelectorAll('.nav-item').forEach(item => {
+      item.addEventListener('click', (e) => {
+        e.preventDefault();
+        
+        // Update nav
+        document.querySelectorAll('.nav-item').forEach(nav => nav.classList.remove('active'));
+        item.classList.add('active');
+        
+        // Update section
+        const page = item.dataset.page;
+        document.querySelectorAll('.page-section').forEach(sec => sec.classList.remove('active'));
+        document.getElementById(page).classList.add('active');
+        
+        // Update title
+        document.getElementById('page-title').textContent = 
+          item.textContent.trim().split('\n')[0] || item.textContent.trim();
+      });
+    });
+
+    // Logout
+    document.querySelector('.logout-btn').addEventListener('click', () => {
+      const confirmed = confirm('Are you sure you want to logout?');
+      if (confirmed) {
+        // Clear session storage
+        sessionStorage.removeItem('adminLoggedIn');
+        sessionStorage.removeItem('adminEmail');
+        sessionStorage.removeItem('adminLoginTime');
+        
+        // Redirect to login
+        window.location.href = '/admin/login';
+      }
+    });
+  </script>
+</body>
+</html>

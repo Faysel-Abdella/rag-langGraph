@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Login - AI Chatbot</title>
+  <style>
+    :root {
+      --primary: #CA9D2B;
+      --primary-dark: #b88621;
+      --bg-navy: #0F172A;
+      --card-bg: #FFFFFF;
+      --text-dark: #1E293B;
+      --text-gray: #64748B;
+      --border: #E2E8F0;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      width: 100%;
+      height: 100vh;
+      /* Enhanced gradient depth */
+      background: radial-gradient(circle at top right, #1e293b, #0f172a);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      overflow: hidden;
+    }
+
+    /* Decorative background element */
+    body::after {
+      content: "";
+      position: absolute;
+      width: 400px;
+      height: 400px;
+      background: var(--primary);
+      filter: blur(150px);
+      opacity: 0.08;
+      z-index: 0;
+    }
+
+    .login-container {
+      width: 100%;
+      max-width: 520px;
+      padding: 24px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .login-card {
+      background: var(--card-bg);
+      border-radius: 24px;
+      padding: 48px 40px;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .login-header {
+      text-align: center;
+      margin-bottom: 32px;
+    }
+
+    .login-logo {
+      width: 72px;
+      height: 72px;
+      margin: 0 auto 20px;
+      background: linear-gradient(135deg, var(--primary) 0%, #151C28 100%);
+      border-radius: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 8px 20px rgba(202, 157, 43, 0.3);
+    }
+
+    /* Modern SVG Robot Icon */
+    .login-logo svg {
+      width: 36px;
+      height: 36px;
+      fill: white;
+    }
+
+    .login-title {
+      font-size: 28px;
+      font-weight: 800;
+      color: var(--bg-navy);
+      margin-bottom: 8px;
+      letter-spacing: -0.5px;
+    }
+
+    .login-subtitle {
+      font-size: 14px;
+      color: var(--text-gray);
+      font-weight: 500;
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    .form-group label {
+      display: block;
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text-dark);
+      margin-bottom: 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .form-group input {
+      width: 100%;
+      padding: 14px 16px;
+      border: 2px solid var(--border);
+      border-radius: 12px;
+      font-size: 15px;
+      outline: none;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      background: #F8FAFC;
+      color: var(--text-dark);
+    }
+
+    .form-group input:focus {
+      border-color: var(--primary);
+      background: white;
+      box-shadow: 0 0 0 4px rgba(202, 157, 43, 0.1);
+    }
+
+    .remember-forgot {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 28px;
+      font-size: 14px;
+    }
+
+    .remember-me {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--text-gray);
+      cursor: pointer;
+    }
+
+    .remember-me input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      cursor: pointer;
+      accent-color: var(--primary);
+    }
+
+    .forgot-link {
+      color: var(--primary);
+      text-decoration: none;
+      transition: all 0.2s;
+      font-weight: 700;
+    }
+
+    .forgot-link:hover {
+      color: var(--primary-dark);
+      text-decoration: underline;
+    }
+
+    .login-button {
+      width: 100%;
+      padding: 16px;
+      background: var(--bg-navy);
+      color: white;
+      border: none;
+      border-radius: 12px;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.3s;
+      box-shadow: 0 4px 12px rgba(15, 23, 42, 0.2);
+    }
+
+    .login-button:hover {
+      background: #000;
+      transform: translateY(-1px);
+      box-shadow: 0 8px 20px rgba(15, 23, 42, 0.3);
+    }
+
+    .login-button:disabled {
+      opacity: 0.7;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .login-footer {
+      text-align: center;
+      margin-top: 32px;
+      padding-top: 24px;
+      border-top: 1px solid #F1F5F9;
+    }
+
+    .error-message, .success-message {
+      padding: 14px;
+      border-radius: 10px;
+      margin-bottom: 20px;
+      display: none;
+      font-size: 14px;
+      font-weight: 500;
+      border: 1px solid transparent;
+    }
+
+    .error-message.show { display: block; background: #FFF1F2; color: #BE123C; border-color: #FECDD3; }
+    .success-message.show { display: block; background: #F0FDF4; color: #15803D; border-color: #DCFCE7; }
+
+    .loading {
+      display: flex;
+      justify-content: center;
+      gap: 4px;
+    }
+
+    .loading span {
+      width: 6px;
+      height: 6px;
+      background: white;
+      border-radius: 50%;
+      animation: dots 1.4s infinite ease-in-out;
+    }
+
+    .loading span:nth-child(2) { animation-delay: 0.2s; }
+    .loading span:nth-child(3) { animation-delay: 0.4s; }
+
+    @keyframes dots {
+      0%, 80%, 100% { opacity: 0.3; transform: scale(0.8); }
+      40% { opacity: 1; transform: scale(1.2); }
+    }
+
+    @media (max-width: 480px) {
+      .login-card { padding: 32px 24px; }
+      .login-title { font-size: 24px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="login-container">
+    <div class="login-card">
+      <div class="login-header">
+        <div class="login-logo">
+          <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12 2a2 2 0 0 1 2 2v2h2a2 2 0 0 1 2 2v2a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2v2a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2v-2a2 2 0 0 1-2-2v-4a2 2 0 0 1 2-2V8a2 2 0 0 1 2-2h2V4a2 2 0 0 1 2-2zM8 10a1 1 0 1 0 0 2 1 1 0 0 0 0-2zm8 0a1 1 0 1 0 0 2 1 1 0 0 0 0-2zM9 16h6v1H9v-1z"/>
+          </svg>
+        </div>
+        <h1 class="login-title">Admin Login</h1>
+      </div>
+
+      <div class="error-message" id="errorMessage"></div>
+      <div class="success-message" id="successMessage"></div>
+
+      <form id="loginForm">
+        <div class="form-group">
+          <label for="email">Email Address</label>
+          <input 
+            type="email" 
+            id="email" 
+            name="email" 
+            placeholder="admin@example.com"
+            required
+          />
+        </div>
+
+        <div class="form-group">
+          <label for="password">Password</label>
+          <input 
+            type="password" 
+            id="password" 
+            name="password" 
+            placeholder="Enter your password"
+            required
+          />
+        </div>
+
+        <div class="remember-forgot">
+          <label class="remember-me">
+            <input type="checkbox" id="rememberMe" name="rememberMe" />
+            Remember me
+          </label>
+          <a href="#" class="forgot-link" onclick="handleForgotPassword(event)">Forgot password?</a>
+        </div>
+
+        <button type="submit" class="login-button" id="loginBtn">Sign In</button>
+      </form>
+
+      <div class="login-footer">
+        <p style="color: #854D0E; background: #FEF9C3; display: inline-block; padding: 2px 8px; border-radius: 4px; font-weight: 600; font-size: 11px; margin-bottom: 8px;">📌 Phase 1 Demo: Use any email/password</p>
+        <p style="font-size: 12px; color: #adb5bd;">
+          Phase 2: Full authentication with Firebase
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ============================================
+    // LOGIN FORM HANDLER
+    // ============================================
+    const loginForm = document.getElementById('loginForm');
+    const emailInput = document.getElementById('email');
+    const passwordInput = document.getElementById('password');
+    const rememberMeCheckbox = document.getElementById('rememberMe');
+    const loginBtn = document.getElementById('loginBtn');
+    const errorMessage = document.getElementById('errorMessage');
+    const successMessage = document.getElementById('successMessage');
+
+    // Load saved credentials if remember me was checked
+    window.addEventListener('load', () => {
+      const savedEmail = localStorage.getItem('adminEmail');
+      const savedRememberMe = localStorage.getItem('adminRememberMe');
+      
+      if (savedEmail && savedRememberMe === 'true') {
+        emailInput.value = savedEmail;
+        rememberMeCheckbox.checked = true;
+      }
+    });
+
+    // Handle login form submission
+    loginForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const email = emailInput.value.trim();
+      const password = passwordInput.value;
+
+      // Clear previous messages
+      errorMessage.classList.remove('show');
+      successMessage.classList.remove('show');
+
+      // Validation
+      if (!email || !password) {
+        showError('Please fill in all fields');
+        return;
+      }
+
+      if (!isValidEmail(email)) {
+        showError('Please enter a valid email address');
+        return;
+      }
+
+      if (password.length < 4) {
+        showError('Password must be at least 4 characters');
+        return;
+      }
+
+      // Show loading state
+      const originalText = loginBtn.textContent;
+      loginBtn.disabled = true;
+      loginBtn.innerHTML = '<div class="loading"><span></span><span></span><span></span></div>';
+
+      try {
+        // TODO: Phase 3 - Replace with real Firebase authentication
+        // For Phase 1, we simulate authentication
+        await simulateAuthDelay();
+
+        // Save credentials if remember me is checked
+        if (rememberMeCheckbox.checked) {
+          localStorage.setItem('adminEmail', email);
+          localStorage.setItem('adminRememberMe', 'true');
+        } else {
+          localStorage.removeItem('adminEmail');
+          localStorage.removeItem('adminRememberMe');
+        }
+
+        // Set auth session
+        sessionStorage.setItem('adminLoggedIn', 'true');
+        sessionStorage.setItem('adminEmail', email);
+        sessionStorage.setItem('adminLoginTime', new Date().toISOString());
+
+        showSuccess(`Welcome back! Redirecting...`);
+
+        // Redirect after short delay
+        setTimeout(() => {
+          window.location.href = '/admin/index.html';
+        }, 1500);
+
+      } catch (error) {
+        showError('Login failed. Please try again.');
+        loginBtn.disabled = false;
+        loginBtn.textContent = originalText;
+      }
+    });
+
+    // Simulate auth delay
+    function simulateAuthDelay() {
+      return new Promise((resolve) => {
+        setTimeout(resolve, 1000);
+      });
+    }
+
+    // Validate email format
+    function isValidEmail(email) {
+      const regex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      return regex.test(email);
+    }
+
+    // Show error message
+    function showError(message) {
+      errorMessage.textContent = '✕ ' + message;
+      errorMessage.classList.add('show');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    // Show success message
+    function showSuccess(message) {
+      successMessage.textContent = '✓ ' + message;
+      successMessage.classList.add('show');
+    }
+
+    // Handle forgot password
+    function handleForgotPassword(e) {
+      e.preventDefault();
+      showError('Phase 3 Feature: Password reset coming soon');
+    }
+
+    // Allow Enter key to submit
+    passwordInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        loginForm.dispatchEvent(new Event('submit'));
+      }
+    });
+  </script>
+</body>
+</html>
