@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 
 env:
-  PROJECT_ID: "your-client-gcp-project"
+  PROJECT_ID: "project-48500cc0-09cc-40c8-8e8"
   REGION: "us-west1"
   SERVICE_NAME: "cashflow-rag-backend"
   ENVIRONMENT: "production"
