@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -67,23 +68,22 @@
     }
 
     .login-logo {
-      width: 72px;
-      height: 72px;
-      margin: 0 auto 20px;
-      background: linear-gradient(135deg, var(--primary) 0%, #151C28 100%);
-      border-radius: 18px;
+      width: auto;
+      height: auto;
+      margin: 0 auto 24px;
+      background: transparent;
+      box-shadow: none;
       display: flex;
-      align-items: center;
       justify-content: center;
-      box-shadow: 0 8px 20px rgba(202, 157, 43, 0.3);
+    }
+
+    .login-logo img {
+      max-width: 200px;
+      height: auto;
     }
 
     /* Modern SVG Robot Icon */
-    .login-logo svg {
-      width: 36px;
-      height: 36px;
-      fill: white;
-    }
+    /* Removed old SVG styles */
 
     .login-title {
       font-size: 28px;
@@ -199,7 +199,8 @@
       border-top: 1px solid #F1F5F9;
     }
 
-    .error-message, .success-message {
+    .error-message,
+    .success-message {
       padding: 14px;
       border-radius: 10px;
       margin-bottom: 20px;
@@ -209,8 +210,19 @@
       border: 1px solid transparent;
     }
 
-    .error-message.show { display: block; background: #FFF1F2; color: #BE123C; border-color: #FECDD3; }
-    .success-message.show { display: block; background: #F0FDF4; color: #15803D; border-color: #DCFCE7; }
+    .error-message.show {
+      display: block;
+      background: #FFF1F2;
+      color: #BE123C;
+      border-color: #FECDD3;
+    }
+
+    .success-message.show {
+      display: block;
+      background: #F0FDF4;
+      color: #15803D;
+      border-color: #DCFCE7;
+    }
 
     .loading {
       display: flex;
@@ -226,28 +238,47 @@
       animation: dots 1.4s infinite ease-in-out;
     }
 
-    .loading span:nth-child(2) { animation-delay: 0.2s; }
-    .loading span:nth-child(3) { animation-delay: 0.4s; }
+    .loading span:nth-child(2) {
+      animation-delay: 0.2s;
+    }
+
+    .loading span:nth-child(3) {
+      animation-delay: 0.4s;
+    }
 
     @keyframes dots {
-      0%, 80%, 100% { opacity: 0.3; transform: scale(0.8); }
-      40% { opacity: 1; transform: scale(1.2); }
+
+      0%,
+      80%,
+      100% {
+        opacity: 0.3;
+        transform: scale(0.8);
+      }
+
+      40% {
+        opacity: 1;
+        transform: scale(1.2);
+      }
     }
 
     @media (max-width: 480px) {
-      .login-card { padding: 32px 24px; }
-      .login-title { font-size: 24px; }
+      .login-card {
+        padding: 32px 24px;
+      }
+
+      .login-title {
+        font-size: 24px;
+      }
     }
   </style>
 </head>
+
 <body>
   <div class="login-container">
     <div class="login-card">
       <div class="login-header">
         <div class="login-logo">
-          <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-            <path d="M12 2a2 2 0 0 1 2 2v2h2a2 2 0 0 1 2 2v2a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2v2a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2v-2a2 2 0 0 1-2-2v-4a2 2 0 0 1 2-2V8a2 2 0 0 1 2-2h2V4a2 2 0 0 1 2-2zM8 10a1 1 0 1 0 0 2 1 1 0 0 0 0-2zm8 0a1 1 0 1 0 0 2 1 1 0 0 0 0-2zM9 16h6v1H9v-1z"/>
-          </svg>
+          <img src="../image/Group 1437254357.png" alt="ChatBot Admin" />
         </div>
         <h1 class="login-title">Admin Login</h1>
       </div>
@@ -258,24 +289,12 @@
       <form id="loginForm">
         <div class="form-group">
           <label for="email">Email Address</label>
-          <input 
-            type="email" 
-            id="email" 
-            name="email" 
-            placeholder="admin@example.com"
-            required
-          />
+          <input type="email" id="email" name="email" placeholder="admin@example.com" required />
         </div>
 
         <div class="form-group">
           <label for="password">Password</label>
-          <input 
-            type="password" 
-            id="password" 
-            name="password" 
-            placeholder="Enter your password"
-            required
-          />
+          <input type="password" id="password" name="password" placeholder="Enter your password" required />
         </div>
 
         <div class="remember-forgot">
@@ -292,7 +311,7 @@
       <div class="login-footer">
 
         <p style="font-size: 12px; color: #adb5bd;">
-    
+
         </p>
       </div>
     </div>
@@ -314,7 +333,7 @@
     window.addEventListener('load', () => {
       const savedEmail = localStorage.getItem('adminEmail');
       const savedRememberMe = localStorage.getItem('adminRememberMe');
-      
+
       if (savedEmail && savedRememberMe === 'true') {
         emailInput.value = savedEmail;
         rememberMeCheckbox.checked = true;
@@ -426,4 +445,5 @@
     });
   </script>
 </body>
+
 </html>

@@ -18,6 +18,15 @@ class AdminDashboard {
       return;
     }
 
+    // Render Components
+    this.renderComponents();
+
+    // Update UI with user data
+    const adminEmail = sessionStorage.getItem('adminEmail');
+    if (adminEmail) {
+      this.updateUserEmail(adminEmail);
+    }
+
     // Setup event listeners
     this.setupNavigation();
     this.setupLogout();
@@ -53,6 +62,23 @@ class AdminDashboard {
     userEmailElements.forEach((element) => {
       element.textContent = email;
     });
+  }
+
+  /**
+   * Render dynamic components
+   */
+  renderComponents() {
+    // Render Sidebar
+    const container = document.getElementById('admin-container');
+    if (container) {
+      container.insertAdjacentHTML('afterbegin', Sidebar.render());
+    }
+
+    // Render Header
+    const mainContent = document.querySelector('.main-content');
+    if (mainContent) {
+      mainContent.insertAdjacentHTML('afterbegin', Header.render());
+    }
   }
 
   /**

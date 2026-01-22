@@ -1,355 +1,76 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Admin Dashboard - AI Chatbot</title>
-  <link rel="stylesheet" href="/admin/styles.css">
+  <title>ChatBot Knowledge Base</title>
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Font Awesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- Custom Styles -->
+  <link rel="stylesheet" href="styles.css">
+
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: #F8F9FB;
+      /* Light grey background from design */
+    }
+
+    /* Custom Scrollbar for Table */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: #E2E8F0;
+      border-radius: 3px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: #CBD5E1;
+    }
+  </style>
 </head>
-<body>
-  <div class="admin-container">
-    <!-- Sidebar -->
-    <aside class="sidebar">
-      <div class="sidebar-header">
-        <h2>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm-2-13h4v6h-4zm0 8h4v2h-4z"/>
-          </svg>
-          Chatbot
-        </h2>
-        <p class="phase-badge">Phase 1 - Preview</p>
-      </div>
 
-      <nav class="sidebar-nav">
-        <a href="#" data-page="dashboard" class="nav-item active">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <line x1="12" y1="2" x2="12" y2="22"></line>
-            <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
-          </svg>
-          <span>Dashboard</span>
-        </a>
-        <a href="#" data-page="knowledge" class="nav-item">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
-            <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
-          </svg>
-          <span>Knowledge Base</span>
-        </a>
-        <a href="#" data-page="conversations" class="nav-item">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
-          </svg>
-          <span>Conversations</span>
-        </a>
-        <a href="#" data-page="escalations" class="nav-item">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
-          </svg>
-          <span>Escalations</span>
-        </a>
-      </nav>
+<body class="antialiased text-slate-800">
 
-      <div class="sidebar-footer">
-        <div style="padding: 12px 16px; border-top: 1px solid rgba(255,255,255,0.1); margin-bottom: 12px;">
-          <p style="font-size: 11px; color: rgba(255,255,255,0.6); margin-bottom: 4px;">LOGGED IN AS</p>
-          <p class="user-email" style="font-size: 13px; color: white; font-weight: 600; word-break: break-all;">admin@example.com</p>
-        </div>
-        <button class="logout-btn">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
-            <polyline points="16 17 21 12 16 7"></polyline>
-            <line x1="21" y1="12" x2="9" y2="12"></line>
-          </svg>
-          Logout
-        </button>
-      </div>
-    </aside>
+  <div id="app" class="flex min-h-screen">
+    <!-- Sidebar Container -->
+    <div id="sidebar-container"></div>
 
-    <!-- Main Content -->
-    <main class="main-content">
-      <header class="page-header">
-        <h1 id="page-title">Dashboard</h1>
-        <div class="header-right">
-          <span class="health-status">
-            <span class="status-indicator"></span>
-            System OK
-          </span>
-          <span class="user-info">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-              <circle cx="12" cy="7" r="4"></circle>
-            </svg>
-            Admin
-          </span>
-        </div>
-      </header>
+    <!-- Main Content Wrapper -->
+    <div class="flex-1 ml-[260px] flex flex-col min-w-0">
 
-      <div class="page-content">
-        <!-- Dashboard -->
-        <section id="dashboard" class="page-section active">
-          <div class="stats-grid">
-            <div class="stat-card">
-              <svg class="stat-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
-              </svg>
-              <div class="stat-label">Total Messages</div>
-              <div class="stat-value">1,284</div>
-              <div class="stat-trend">↑ 12% from last week</div>
-            </div>
+      <!-- Header Container -->
+      <div id="header-container"></div>
 
-            <div class="stat-card">
-              <svg class="stat-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <polyline points="20 6 9 17 4 12"></polyline>
-              </svg>
-              <div class="stat-label">Resolved</div>
-              <div class="stat-value">92%</div>
-              <div class="stat-trend">↑ 3% improvement</div>
-            </div>
-
-            <div class="stat-card">
-              <svg class="stat-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <circle cx="12" cy="12" r="1"></circle>
-                <path d="M12 1v6m0 6v6M4.22 4.22l4.24 4.24m2.12 2.12l4.24 4.24M1 12h6m6 0h6M4.22 19.78l4.24-4.24m2.12-2.12l4.24-4.24M19.78 19.78l-4.24-4.24m-2.12-2.12l-4.24-4.24M19.78 4.22l-4.24 4.24m-2.12 2.12l-4.24 4.24"/>
-              </svg>
-              <div class="stat-label">Avg Response</div>
-              <div class="stat-value">0.8s</div>
-              <div class="stat-trend">↑ Optimized</div>
-            </div>
-
-            <div class="stat-card">
-              <svg class="stat-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
-                <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
-              </svg>
-              <div class="stat-label">Knowledge Base</div>
-              <div class="stat-value">47</div>
-              <div class="stat-trend">Documents indexed</div>
-            </div>
-          </div>
-
-          <div class="card">
-            <div class="card-title">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <polyline points="23 6 13.5 15.5 8.5 10.5 1 17"></polyline>
-                <polyline points="17 6 23 6 23 12"></polyline>
-              </svg>
-              Recent Activity
-              <span class="card-badge">Live</span>
-            </div>
-            <div class="placeholder-content">
-              <svg class="placeholder-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <polyline points="23 6 13.5 15.5 8.5 10.5 1 17"></polyline>
-                <polyline points="17 6 23 6 23 12"></polyline>
-              </svg>
-              <p><strong>Phase 2:</strong> Real-time activity graphs coming soon</p>
-            </div>
-          </div>
-        </section>
-
-        <!-- Knowledge Base -->
-        <section id="knowledge" class="page-section">
-          <div class="card">
-            <div class="card-title">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
-                <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
-              </svg>
-              Upload Documents
-            </div>
-            <div class="upload-area">
-              <svg class="upload-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                <polyline points="17 8 12 3 7 8"></polyline>
-                <line x1="12" y1="3" x2="12" y2="15"></line>
-              </svg>
-              <div class="upload-text">Click or drag files here</div>
-              <div class="upload-hint">Supported: PDF, DOCX, TXT (Max 10MB)</div>
-            </div>
-          </div>
-
-          <div class="card">
-            <div class="card-title">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
-                <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
-              </svg>
-              Uploaded Documents
-              <button class="btn btn-secondary">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 14px; height: 14px;">
-                  <path d="M23 4v6h-6"></path>
-                  <path d="M1 20v-6h6"></path>
-                  <path d="M3.51 9a9 9 0 0 1 14.85-4M20.49 15a9 9 0 0 1-14.85 4"></path>
-                </svg>
-                Re-index
-              </button>
-            </div>
-            <table class="table">
-              <thead>
-                <tr>
-                  <th>Document</th>
-                  <th>Type</th>
-                  <th>Size</th>
-                  <th>Status</th>
-                  <th>Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td>Pricing Guide.pdf</td>
-                  <td>PDF</td>
-                  <td>2.4 MB</td>
-                  <td><span class="badge badge-success">Indexed</span></td>
-                  <td><button class="btn btn-secondary" style="padding: 6px 12px; font-size: 12px;">Delete</button></td>
-                </tr>
-                <tr>
-                  <td>FAQ.docx</td>
-                  <td>DOCX</td>
-                  <td>1.1 MB</td>
-                  <td><span class="badge badge-success">Indexed</span></td>
-                  <td><button class="btn btn-secondary" style="padding: 6px 12px; font-size: 12px;">Delete</button></td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-
-          <div class="placeholder-content">
-            <svg class="placeholder-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M12 5v14M5 12h14"></path>
-            </svg>
-            <p><strong>Phase 3:</strong> Full document management and vector search</p>
-          </div>
-        </section>
-
-        <!-- Conversations -->
-        <section id="conversations" class="page-section">
-          <div class="card">
-            <div class="card-title">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
-              </svg>
-              Recent Conversations
-            </div>
-            <table class="table">
-              <thead>
-                <tr>
-                  <th>Date</th>
-                  <th>User Question</th>
-                  <th>Quality</th>
-                  <th>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td>Today 2:34 PM</td>
-                  <td>"How do I reset my password?"</td>
-                  <td><span class="badge badge-success">Accurate</span></td>
-                  <td>✓ Resolved</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-
-          <div class="placeholder-content">
-            <svg class="placeholder-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
-            </svg>
-            <p><strong>Phase 2:</strong> Real conversation data from RAG pipeline</p>
-          </div>
-        </section>
-
-        <!-- Escalations -->
-        <section id="escalations" class="page-section">
-          <div class="card">
-            <div class="card-title">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
-              </svg>
-              Escalated Issues
-            </div>
-            <table class="table">
-              <thead>
-                <tr>
-                  <th>Date</th>
-                  <th>User</th>
-                  <th>Issue</th>
-                  <th>Reason</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td>Today 3:15 PM</td>
-                  <td>john@example.com</td>
-                  <td>"Complex question"</td>
-                  <td><span class="badge badge-pending">Low Confidence</span></td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-
-          <div class="placeholder-content">
-            <svg class="placeholder-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-              <circle cx="12" cy="7" r="4"></circle>
-            </svg>
-            <p><strong>Phase 3:</strong> Escalation management and tracking</p>
-          </div>
-        </section>
-      </div>
-    </main>
+      <!-- Page Content Container -->
+      <main id="content-container" class="flex-1 overflow-x-hidden overflow-y-auto">
+        <!-- Content injected here -->
+      </main>
+    </div>
   </div>
 
-  <script>
-    // ============================================
-    // AUTHENTICATION CHECK
-    // ============================================
-    function checkAdminAuth() {
-      const isLoggedIn = sessionStorage.getItem('adminLoggedIn');
-      const adminEmail = sessionStorage.getItem('adminEmail');
-
-      if (!isLoggedIn || !adminEmail) {
-        // Redirect to login if not authenticated
-        window.location.href = '/admin/login';
-        return false;
-      }
-
-      // Update user info in header
-      const userEmailElement = document.querySelector('.user-email');
-      if (userEmailElement) {
-        userEmailElement.textContent = adminEmail;
-      }
-
-      return true;
-    }
-
-    // Check auth on page load
-    if (!checkAdminAuth()) {
-      throw new Error('Not authenticated');
-    }
-
-    // ============================================
-    // NAVIGATION & LOGOUT
-    // ============================================
-    document.querySelectorAll('.nav-item').forEach(item => {
-      item.addEventListener('click', (e) => {
-        e.preventDefault();
-        
-        // Update nav
-        document.querySelectorAll('.nav-item').forEach(nav => nav.classList.remove('active'));
-        item.classList.add('active');
-        
-        // Update section
-        const page = item.dataset.page;
-        document.querySelectorAll('.page-section').forEach(sec => sec.classList.remove('active'));
-        document.getElementById(page).classList.add('active');
-        
-        // Update title
-        document.getElementById('page-title').textContent = 
-          item.textContent.trim().split('\n')[0] || item.textContent.trim();
-      });
-    });
-
-  <!-- Load external scripts -->
-//   <script src="/admin/components.js"></script>
-  <script src="/admin/app.js"></script>
+  <!-- Scripts -->
+  <script src="js/components/Sidebar.js"></script>
+  <script src="js/components/Header.js"></script>
+  <script src="js/sections/KnowledgeBase.js"></script>
+  <script src="js/sections/Conversations.js"></script>
+  <script src="js/main.js"></script>
 </body>
+
 </html>

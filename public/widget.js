@@ -85,11 +85,6 @@
     fontLink.rel = 'stylesheet';
     document.head.appendChild(fontLink);
 
-    const fontAwesomeLink = document.createElement('link');
-    fontAwesomeLink.href = 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css';
-    fontAwesomeLink.rel = 'stylesheet';
-    document.head.appendChild(fontAwesomeLink);
-
     const style = document.createElement('style');
     style.textContent = `
       #ai-chatbot-widget {
@@ -124,7 +119,6 @@
       }
 
       .header-left, .header-right { display: flex; align-items: center; gap: 12px; }
-
       .header-title { font-weight: 700; font-size: 18px; color: #111; }
 
       .header-logo {
@@ -137,33 +131,46 @@
         justify-content: center;
       }
 
+      .icon-btn { background: none; border: none; cursor: pointer; color: #333; display: flex; align-items: center; padding: 4px; }
+      .icon-btn svg { width: 18px; height: 18px; }
+
       .chatbot-messages {
         flex: 1;
-        overflow-y: scroll;
+        overflow-y: auto;
         scrollbar-width: none;
-        -ms-overflow-style: none;
         padding: 24px 20px;
         display: flex;
         flex-direction: column;
-        gap: 16px;
+        gap: 12px;
       }
       .chatbot-messages::-webkit-scrollbar { display: none; }
 
+      .chat-intro-text {
+        font-size: 13.5px;
+        color: #757575;
+        text-align: center;
+        margin: 8px 0 16px 0;
+      }
+
+      .chatbot-message { max-width: 85%; }
       .chatbot-message p {
-        font-family: 'Outfit', sans-serif;
-        font-weight: 400;
-        font-size: 14px;
-        line-height: 140%;
-        padding: 12px 16px;
+        font-size: 14.5px;
+        line-height: 1.4;
+        padding: 12px 18px;
         margin: 0;
       }
 
+      .bot-message { align-self: flex-start; }
       .bot-message p { background: #F3F3F3; color: #1a1a1a; border-radius: 20px 20px 20px 4px; }
+
       .user-message { align-self: flex-end; }
-      .user-message p {
-        background: #D59800;
-        color: white;
-        border-radius: 20px 4px 20px 20px;
+      .user-message p { background: #D59800; color: white; border-radius: 20px 20px 4px 20px; }
+
+      .message-metadata {
+        font-size: 12px;
+        color: #8E8E8E;
+        margin-top: 6px;
+        padding-left: 4px;
       }
 
       .chatbot-input-wrapper {
@@ -182,8 +189,7 @@
         border: none;
         outline: none;
         font-family: 'Outfit', sans-serif;
-        font-size: 14px;
-        line-height: 140%;
+        font-size: 14.5px;
         color: #333;
       }
 
@@ -199,31 +205,18 @@
         cursor: pointer;
       }
 
-      .chatbot-send-btn svg { 
-        width: 20px; 
-        height: 20px; 
-        /* Reset transform to ensure it is straight */
-        transform: none; 
-      }
-
       .chatbot-toggle {
         width: 56px;
         height: 56px;
         background: #D59800;
-        border-radius: 121px;
+        border-radius: 50%;
         display: flex;
         align-items: center;
         justify-content: center;
         box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
         cursor: pointer;
         border: none;
-        padding: 16px;
-        gap: 10px;
-        opacity: 1;
       }
-      .chatbot-toggle svg { width: 24px; height: 24px; }
-      .icon-btn { background: none; border: none; cursor: pointer; color: #333; display: flex; align-items: center; padding: 4px; }
-      .icon-btn svg { width: 18px; height: 18px; }
     `;
     document.head.appendChild(style);
   }
@@ -239,6 +232,7 @@
       window_.style.display = window_.style.display === 'none' ? 'flex' : 'none';
       if(window_.style.display === 'flex') input.focus();
     });
+    
     closeBtn.addEventListener('click', () => { window_.style.display = 'none'; });
 
     const handleSend = () => {
@@ -248,8 +242,9 @@
       addMessage(message, 'user');
       input.value = '';
       
-      // Send to API
-      sendMessageToApi(message);
+      setTimeout(() => {
+        addMessage("Hey there, our Customer Success team is happy to help you out!", 'bot');
+      }, 700);
     };
 
     sendBtn.addEventListener('click', handleSend);
@@ -262,32 +257,16 @@
     const messagesContainer = document.getElementById('chatbot-messages');
     const msgDiv = document.createElement('div');
     msgDiv.className = `chatbot-message ${sender}-message`;
-    msgDiv.innerHTML = `<p>${text}</p>`;
+    const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    
+    let html = `<p>${text}</p>`;
+    if (sender === 'bot') {
+      html += `<div class="message-metadata">AI Agent • ${time}</div>`;
+    }
+    
+    msgDiv.innerHTML = html;
     messagesContainer.appendChild(msgDiv);
     messagesContainer.scrollTop = messagesContainer.scrollHeight;
-  }
-
-  async function sendMessageToApi(message) {
-    const sessionId = localStorage.getItem('chatSessionId') || 'session-' + Date.now();
-    localStorage.setItem('chatSessionId', sessionId);
-
-    try {
-      const response = await fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message, sessionId })
-      });
-      
-      const data = await response.json();
-      if (data.response) {
-        addMessage(data.response, 'bot');
-      } else if (data.error) {
-        addMessage('Sorry, something went wrong.', 'bot');
-      }
-    } catch (error) {
-      console.error('Error sending message:', error);
-      addMessage('Sorry, I cannot connect to the server right now.', 'bot');
-    }
   }
 
   initChatbot();
