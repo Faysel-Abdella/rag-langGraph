@@ -3,13 +3,13 @@ class KnowledgeBase {
       return `
       <div class="px-8 py-6">
         <!-- Header -->
-        <div class="flex justify-between items-center mb-8">
-           <div class="flex items-center gap-4">
-             <h1 class="text-[28px] font-bold text-[#1E293B] tracking-tight">Knowledge Base</h1>
-             <span class="bg-gray-100 text-gray-500 px-3 py-1 rounded-full text-sm font-medium">12</span>
+        <div class="flex justify-between items-center mb-6">
+           <div class="flex items-center gap-3">
+             <h1 class="text-[24px] font-bold text-[#1E293B]">Knowledge Base</h1>
+             <span class="bg-gray-100 text-gray-600 px-2.5 py-0.5 rounded-md text-[13px] font-medium">12</span>
            </div>
-           <button id="add-knowledge-btn" class="flex items-center gap-2 bg-[#E5A000] hover:bg-[#D49000] text-white px-5 py-2.5 rounded-xl font-semibold transition-all shadow-sm">
-             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+           <button id="add-knowledge-btn" class="flex items-center gap-2 bg-[#E5A000] hover:bg-[#D49000] text-white px-5 py-2.5 rounded-lg font-semibold transition-all text-[14px]">
+             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                <path d="M12 5v14M5 12h14"/>
              </svg>
              Add Knowledge
@@ -17,17 +17,19 @@ class KnowledgeBase {
         </div>
 
         <!-- Controls -->
-        <div class="flex justify-between items-center mb-6">
-           <div class="relative w-full max-w-[500px]">
-              <svg class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <div class="flex justify-between items-center gap-4 mb-6">
+           <!-- Search Input -->
+           <div class="relative flex-1">
+              <svg class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <circle cx="11" cy="11" r="8"></circle>
                 <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
               </svg>
-              <input type="text" placeholder="Search by Name, or Key words" class="w-full pl-12 pr-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:border-[#E5A000] focus:ring-1 focus:ring-[#E5A000] transition-all bg-white text-[15px] placeholder-gray-400">
+              <input type="text" placeholder="Search by Name, or Key words" class="w-full pl-11 pr-4 py-2.5 rounded-lg border border-gray-300 focus:outline-none focus:border-[#E5A000] focus:ring-1 focus:ring-[#E5A000] transition-all bg-white text-[14px] placeholder-gray-400">
            </div>
            
-           <button class="flex items-center gap-2 px-4 py-2.5 border border-gray-200 rounded-xl bg-white text-gray-700 hover:bg-gray-50 text-sm font-medium transition-colors shadow-sm">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+           <!-- Sort Button -->
+           <button class="flex items-center gap-2 px-4 py-2.5 border border-gray-300 rounded-lg bg-white text-gray-700 hover:bg-gray-50 text-[14px] font-medium transition-colors whitespace-nowrap">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                  <line x1="21" y1="10" x2="3" y2="10"></line>
                  <line x1="21" y1="6" x2="3" y2="6"></line>
                  <line x1="21" y1="14" x2="3" y2="14"></line>
@@ -59,34 +61,35 @@ class KnowledgeBase {
         </div>
 
         <!-- Pagination -->
-        <div class="flex justify-between items-center text-sm font-medium text-gray-500 px-2">
+        <div class="flex justify-between items-center text-[13px] font-medium text-gray-600 px-2 mt-4">
            <div class="flex items-center gap-3">
               <span>Page 1 of 4</span>
               <div class="relative">
-                 <select class="appearance-none bg-white border border-gray-200 rounded-lg px-3 py-1.5 pr-8 focus:outline-none focus:border-[#E5A000] cursor-pointer text-gray-700 shadow-sm">
+                 <select class="appearance-none bg-white border border-gray-200 rounded-md px-3 py-1.5 pr-8 focus:outline-none focus:border-gray-300 cursor-pointer text-gray-700 text-[13px]">
                     <option>8</option>
                     <option>16</option>
+                    <option>24</option>
                  </select>
-                 <svg class="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                 <svg class="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <polyline points="6 9 12 15 18 9"></polyline>
                  </svg>
               </div>
            </div>
            
-           <div class="flex items-center gap-6">
+           <div class="flex items-center gap-4">
               <span>Page 1 of 4</span>
-              <div class="flex items-center gap-2">
-                 <button class="w-9 h-9 flex items-center justify-center border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors" disabled>
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-gray-400"><polyline points="11 17 6 12 11 7"></polyline><polyline points="18 17 13 12 18 7"></polyline></svg>
+              <div class="flex items-center gap-1">
+                 <button class="w-8 h-8 flex items-center justify-center border border-gray-200 rounded-md hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors" disabled>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-gray-400"><polyline points="11 17 6 12 11 7"></polyline><polyline points="18 17 13 12 18 7"></polyline></svg>
                  </button>
-                 <button class="w-9 h-9 flex items-center justify-center border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors" disabled>
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-gray-400"><polyline points="15 18 9 12 15 6"></polyline></svg>
+                 <button class="w-8 h-8 flex items-center justify-center border border-gray-200 rounded-md hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors" disabled>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-gray-400"><polyline points="15 18 9 12 15 6"></polyline></svg>
                  </button>
-                 <button class="w-9 h-9 flex items-center justify-center border border-gray-200 rounded-lg hover:bg-gray-50 text-gray-600 transition-colors">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                 <button class="w-8 h-8 flex items-center justify-center border border-gray-200 rounded-md hover:bg-gray-50 text-gray-600 transition-colors">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg>
                  </button>
-                 <button class="w-9 h-9 flex items-center justify-center border border-gray-200 rounded-lg hover:bg-gray-50 text-gray-600 transition-colors">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="13 17 18 12 13 7"></polyline><polyline points="6 17 11 12 6 7"></polyline></svg>
+                 <button class="w-8 h-8 flex items-center justify-center border border-gray-200 rounded-md hover:bg-gray-50 text-gray-600 transition-colors">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="13 17 18 12 13 7"></polyline><polyline points="6 17 11 12 6 7"></polyline></svg>
                  </button>
               </div>
            </div>
@@ -242,9 +245,7 @@ class KnowledgeBase {
                  <!-- Header with Icon -->
                  <div class="mb-6">
                     <div class="w-10 h-10 rounded-lg border border-gray-200 flex items-center justify-center mb-4 text-gray-600">
-                       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                         <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"></path>
-                         <line x1="4" y1="22" x2="4" y2="15"></line>
+                                    <img src="../image/flag-05.svg" alt="flag" width="24" height="24">
                        </svg>
                     </div>
                     <h3 class="text-[20px] font-bold text-gray-900 mb-1">Add Knowledge Manually</h3>
