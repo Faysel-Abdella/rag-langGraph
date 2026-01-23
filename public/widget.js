@@ -41,7 +41,7 @@
         </div>
 
         <div class="chatbot-messages" id="chatbot-messages">
-          <div class="chat-intro-text">Ask us anything, or share your feedback.</div>
+          <div class="chat-intro-text">Welcome to our Website! Ask us anything.</div>
           <div class="chatbot-message bot-message">
             <p>Hi! How can I support you today?</p>
           </div>
