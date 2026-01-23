@@ -373,9 +373,23 @@
       loginBtn.innerHTML = '<div class="loading"><span></span><span></span><span></span></div>';
 
       try {
-        // TODO: Phase 3 - Replace with real Firebase authentication
-        // For Phase 1, we simulate authentication
-        await simulateAuthDelay();
+        // Call real API for authentication
+        const response = await fetch('/api/admin/login', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ email, password }),
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          showError(data.error || 'Login failed. Please try again.');
+          loginBtn.disabled = false;
+          loginBtn.textContent = originalText;
+          return;
+        }
 
         // Save credentials if remember me is checked
         if (rememberMeCheckbox.checked) {
@@ -390,6 +404,11 @@
         sessionStorage.setItem('adminLoggedIn', 'true');
         sessionStorage.setItem('adminEmail', email);
         sessionStorage.setItem('adminLoginTime', new Date().toISOString());
+        
+        // Save auth token if provided
+        if (data.token) {
+          sessionStorage.setItem('authToken', data.token);
+        }
 
         showSuccess(`Welcome back! Redirecting...`);
 
@@ -399,18 +418,12 @@
         }, 1500);
 
       } catch (error) {
-        showError('Login failed. Please try again.');
+        console.error('Login error:', error);
+        showError('Login failed. Please check your connection and try again.');
         loginBtn.disabled = false;
         loginBtn.textContent = originalText;
       }
     });
-
-    // Simulate auth delay
-    function simulateAuthDelay() {
-      return new Promise((resolve) => {
-        setTimeout(resolve, 1000);
-      });
-    }
 
     // Validate email format
     function isValidEmail(email) {

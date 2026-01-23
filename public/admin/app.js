@@ -180,12 +180,25 @@ class AdminDashboard {
 
   /**
    * Handle file upload
-   * Phase 3: Send files to backend
+   * Send files to backend API
    */
-  handleFileUpload(files) {
-    console.log('Files selected for upload:', files);
-    // TODO: Phase 3 - Implement file upload to backend
-    alert(`${files.length} file(s) ready to upload - Phase 3 implementation`);
+  async handleFileUpload(files) {
+    if (!files || files.length === 0) return;
+
+    try {
+      for (let file of files) {
+        const formData = new FormData();
+        formData.append('file', file);
+
+        console.log(`Uploading file: ${file.name}`);
+        const result = await window.apiService.adminUploadDocument(formData);
+        console.log(`File uploaded:`, result);
+      }
+      alert(`${files.length} file(s) uploaded successfully!`);
+    } catch (error) {
+      console.error('File upload failed:', error);
+      alert('Failed to upload files. Please try again.');
+    }
   }
 
   /**
@@ -198,81 +211,50 @@ class AdminDashboard {
     // TODO: Phase 2 - Fetch real data from /api/admin/dashboard
     console.log('Loading dashboard data...');
 
-    // For now, data is static in HTML
+    // Load data using API service
+    this.loadData();
+  }
+
+  /**
+   * Load dashboard data from API
+   */
+  async loadData() {
+    try {
+      const stats = await window.apiService.adminGetDashboardStats();
+      if (stats) {
+        this.updateDashboardUI(stats);
+      }
+    } catch (error) {
+      console.error('Failed to load dashboard data:', error);
+    }
+  }
+
+  /**
+    * Update dashboard UI with real data
+   */
+  updateDashboardUI(stats) {
+    // Update message count
+    const msgCountEl = document.querySelector('[data-stat="total-messages"]');
+    if (msgCountEl) msgCountEl.textContent = stats.totalMessages || 0;
+
+    // Update resolved percentage
+    const resolvedEl = document.querySelector('[data-stat="resolved-percentage"]');
+    if (resolvedEl) resolvedEl.textContent = stats.resolvedPercentage + '%' || '0%';
+
+    // Update response time
+    const responseTimeEl = document.querySelector('[data-stat="avg-response-time"]');
+    if (responseTimeEl) responseTimeEl.textContent = stats.avgResponseTime + 'h' || '0h';
+
+    // Update documents indexed
+    const docsEl = document.querySelector('[data-stat="documents-indexed"]');
+    if (docsEl) docsEl.textContent = stats.documentsIndexed || 0;
   }
 }
 
 /**
- * API Service for Admin Dashboard
+ * NOTE: API calls are now centralized in apiService.js
+ * Use window.apiService for all API communication
  */
-class AdminAPI {
-  constructor(apiUrl = 'http://localhost:3000') {
-    this.apiUrl = apiUrl;
-  }
-
-  /**
-   * Get dashboard statistics
-   */
-  async getDashboardStats() {
-    try {
-      const response = await fetch(`${this.apiUrl}/api/admin/dashboard`);
-      if (!response.ok) throw new Error('Failed to fetch dashboard stats');
-      return await response.json();
-    } catch (error) {
-      console.error('Error fetching dashboard stats:', error);
-      return null;
-    }
-  }
-
-  /**
-   * Get conversations
-   */
-  async getConversations(page = 1, pageSize = 10) {
-    try {
-      const response = await fetch(
-        `${this.apiUrl}/api/admin/conversations?page=${page}&pageSize=${pageSize}`
-      );
-      if (!response.ok) throw new Error('Failed to fetch conversations');
-      return await response.json();
-    } catch (error) {
-      console.error('Error fetching conversations:', error);
-      return null;
-    }
-  }
-
-  /**
-   * Get escalations
-   */
-  async getEscalations(page = 1, pageSize = 10) {
-    try {
-      const response = await fetch(
-        `${this.apiUrl}/api/admin/escalations?page=${page}&pageSize=${pageSize}`
-      );
-      if (!response.ok) throw new Error('Failed to fetch escalations');
-      return await response.json();
-    } catch (error) {
-      console.error('Error fetching escalations:', error);
-      return null;
-    }
-  }
-
-  /**
-   * Upload document
-   */
-  async uploadDocument(formData) {
-    try {
-      const response = await fetch(`${this.apiUrl}/api/admin/documents/upload`, {
-        method: 'POST',
-        body: formData,
-      });
-      if (!response.ok) throw new Error('Failed to upload document');
-      return await response.json();
-    } catch (error) {
-      console.error('Error uploading document:', error);
-      return null;
-    }
-  }
-}
 
 /**
  * Initialize dashboard on DOM ready
@@ -280,9 +262,7 @@ class AdminAPI {
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', () => {
     window.adminDashboard = new AdminDashboard();
-    window.adminAPI = new AdminAPI();
   });
 } else {
   window.adminDashboard = new AdminDashboard();
-  window.adminAPI = new AdminAPI();
 }

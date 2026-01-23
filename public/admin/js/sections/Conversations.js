@@ -8,74 +8,9 @@ class Conversations {
             <h2 class="text-[20px] font-bold text-gray-900 tracking-tight">Messages</h2>
           </div>
           
-          <div class="flex-1 overflow-y-auto pl-4 space-y-2 pr-0">
-            <!-- Active Conversation -->
-            <div class="group flex items-start gap-4 p-4 rounded-l-2xl rounded-r-none bg-gray-100 cursor-pointer border-transparent hover:bg-gray-100 transition-all relative overflow-hidden mr-0 conversation-item active" data-conversation-id="73c72">
-               
-               <div class="relative">
-                 <div class="w-10 h-10 rounded-full bg-white border border-gray-200 flex items-center justify-center text-xs font-bold text-gray-600 shadow-sm">
-                   #7
-                 </div>
-                 <div class="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-[#27ae60] rounded-full border-2 border-white"></div>
-               </div>
-               <div class="flex-1 min-w-0 pr-4">
-                 <div class="flex justify-between items-baseline mb-1">
-                   <h3 class="text-[14px] font-bold text-gray-900 font-mono">#73c72</h3>
-                   <span class="text-[12px] text-gray-500 font-medium">3:15 PM</span>
-                 </div>
-                 <p class="text-[13px] text-gray-500 truncate leading-relaxed">let's say it does - what happens if I...</p>
-               </div>
-            </div>
-
-            <!-- Conversation Item -->
-            <div class="group flex items-start gap-4 p-4 rounded-l-2xl rounded-r-none hover:bg-gray-50 cursor-pointer transition-all border-l-4 border-transparent mr-0 conversation-item" data-conversation-id="18nc23">
-               <div class="relative">
-                 <div class="w-10 h-10 rounded-full bg-gray-50 border border-gray-200 flex items-center justify-center text-xs font-bold text-gray-600">
-                   #1
-                 </div>
-                 <div class="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-[#27ae60] rounded-full border-2 border-white"></div>
-               </div>
-               <div class="flex-1 min-w-0 pr-4">
-                 <div class="flex justify-between items-baseline mb-1">
-                   <h3 class="text-[14px] font-bold text-gray-900 font-mono">#18nc23</h3>
-                   <span class="text-[12px] text-gray-500 font-medium">3:15 PM</span>
-                 </div>
-                 <p class="text-[13px] text-gray-500 truncate leading-relaxed">do androids truly dream of electric...</p>
-               </div>
-            </div>
-
-            <!-- Conversation Item -->
-            <div class="group flex items-start gap-4 p-4 rounded-l-2xl rounded-r-none hover:bg-gray-50 cursor-pointer transition-all border-l-4 border-transparent mr-0 conversation-item" data-conversation-id="marus">
-               <div class="relative">
-                 <div class="w-10 h-10 rounded-full bg-gray-100 border border-gray-200 flex items-center justify-center text-xs font-bold text-gray-600">
-                   MA
-                 </div>
-                 <div class="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-gray-300 rounded-full border-2 border-white"></div>
-               </div>
-               <div class="flex-1 min-w-0 pr-4">
-                 <div class="flex justify-between items-baseline mb-1">
-                   <h3 class="text-[14px] font-bold text-gray-900">Marus Addis</h3>
-                   <span class="text-[12px] text-gray-500 font-medium">3:15 PM</span>
-                 </div>
-                 <p class="text-[13px] text-gray-500 truncate leading-relaxed">How do i reset my password?</p>
-               </div>
-            </div>
-
-            <!-- Conversation Item -->
-            <div class="group flex items-start gap-4 p-4 rounded-l-2xl rounded-r-none hover:bg-gray-50 cursor-pointer transition-all border-l-4 border-transparent mr-0 conversation-item" data-conversation-id="431gv9">
-               <div class="relative">
-                 <div class="w-10 h-10 rounded-full bg-gray-50 border border-gray-200 flex items-center justify-center text-xs font-bold text-gray-600">
-                   #4
-                 </div>
-               </div>
-               <div class="flex-1 min-w-0 pr-4">
-                 <div class="flex justify-between items-baseline mb-1">
-                   <h3 class="text-[14px] font-bold text-gray-900 font-mono">#431gv9</h3>
-                   <span class="text-[12px] text-gray-500 font-medium">3:15 PM</span>
-                 </div>
-                 <p class="text-[13px] text-gray-500 truncate leading-relaxed">How to reactivate my accout?</p>
-               </div>
-            </div>
+          <div class="flex-1 overflow-y-auto pl-4 space-y-2 pr-0" id="conversations-list">
+            <!-- Conversations will be loaded here by JavaScript -->
+            <div class="p-4 text-center text-gray-400 text-sm">Loading conversations...</div>
           </div>
         </div>
 
@@ -196,6 +131,63 @@ class Conversations {
    }
 
    static afterRender() {
+      this.loadConversations();
+      // Listeners will be attached after conversations load
+   }
+
+   static async loadConversations() {
+      try {
+         const data = await window.apiService.adminGetConversations(1, 50);
+         if (data && data.conversations) {
+            this.renderConversationList(data.conversations);
+         }
+      } catch (error) {
+         console.error('Failed to load conversations:', error);
+         // Show error state
+         const list = document.getElementById('conversations-list');
+         if (list) {
+            list.innerHTML = '<div class="p-4 text-center text-red-500 text-sm">Failed to load conversations</div>';
+         }
+      }
+   }
+
+   static renderConversationList(conversations) {
+      const container = document.getElementById('conversations-list');
+      if (!container) return;
+
+      if (conversations.length === 0) {
+         container.innerHTML = '<div class="p-4 text-center text-gray-400 text-sm">No conversations yet</div>';
+         return;
+      }
+
+      const html = conversations.map((conv, idx) => {
+         const startTime = new Date(conv.startedAt);
+         const timeStr = startTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+         const initials = conv.userId ? conv.userId.substring(0, 2).toUpperCase() : '#' + (idx + 1);
+         const isActive = idx === 0 ? 'active' : '';
+         const bgClass = isActive ? 'bg-gray-100' : 'hover:bg-gray-50';
+         const statusIndicator = conv.status === 'active' ? 'bg-[#27ae60]' : conv.status === 'escalated' ? 'bg-[#E5A000]' : 'bg-gray-300';
+
+         return `
+            <div class="group flex items-start gap-4 p-4 rounded-l-2xl rounded-r-none ${bgClass} cursor-pointer border-transparent transition-all relative overflow-hidden mr-0 conversation-item ${isActive}" data-conversation-id="${conv.id}">
+               <div class="relative">
+                 <div class="w-10 h-10 rounded-full bg-gray-50 border border-gray-200 flex items-center justify-center text-xs font-bold text-gray-600">
+                   ${initials}
+                 </div>
+                 <div class="absolute -bottom-0.5 -right-0.5 w-3 h-3 ${statusIndicator} rounded-full border-2 border-white"></div>
+               </div>
+               <div class="flex-1 min-w-0 pr-4">
+                 <div class="flex justify-between items-baseline mb-1">
+                   <h3 class="text-[14px] font-bold text-gray-900 font-mono">${conv.id.substring(0, 8)}</h3>
+                   <span class="text-[12px] text-gray-500 font-medium">${timeStr}</span>
+                 </div>
+                 <p class="text-[13px] text-gray-500 truncate leading-relaxed">${conv.lastMessage}</p>
+               </div>
+            </div>
+         `;
+      }).join('');
+
+      container.innerHTML = html;
       this.setupConversationListeners();
    }
 

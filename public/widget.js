@@ -228,29 +228,60 @@
     const input = document.getElementById('chatbot-input');
     const sendBtn = document.getElementById('chatbot-send');
 
+    // Generate or retrieve session ID
+    const sessionId = getOrCreateSessionId();
+
     toggleBtn.addEventListener('click', () => {
       window_.style.display = window_.style.display === 'none' ? 'flex' : 'none';
-      if(window_.style.display === 'flex') input.focus();
+      if (window_.style.display === 'flex') input.focus();
     });
-    
+
     closeBtn.addEventListener('click', () => { window_.style.display = 'none'; });
 
-    const handleSend = () => {
+    const handleSend = async () => {
       const message = input.value.trim();
       if (!message) return;
-      
+
       addMessage(message, 'user');
       input.value = '';
-      
-      setTimeout(() => {
-        addMessage("Hey there, our Customer Success team is happy to help you out!", 'bot');
-      }, 700);
+      sendBtn.disabled = true;
+
+      try {
+        // Send message to API
+        const response = await fetch('/api/chat', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ message, sessionId }),
+        });
+
+        if (!response.ok) throw new Error('Failed to send message');
+        
+        const data = await response.json();
+        addMessage(data.answer || "Sorry, I couldn't process that.", 'bot');
+      } catch (error) {
+        console.error('Error sending message:', error);
+        addMessage("Sorry, I'm having trouble connecting. Please try again later.", 'bot');
+      } finally {
+        sendBtn.disabled = false;
+        input.focus();
+      }
     };
 
     sendBtn.addEventListener('click', handleSend);
     input.addEventListener('keypress', (e) => {
-      if (e.key === 'Enter') handleSend();
+      if (e.key === 'Enter' && !sendBtn.disabled) handleSend();
     });
+  }
+
+  function getOrCreateSessionId() {
+    let sessionId = sessionStorage.getItem('chatbot_session_id');
+    if (!sessionId) {
+      sessionId = 'session_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+      sessionStorage.setItem('chatbot_session_id', sessionId);
+    }
+    return sessionId;
   }
 
   function addMessage(text, sender) {
@@ -258,12 +289,12 @@
     const msgDiv = document.createElement('div');
     msgDiv.className = `chatbot-message ${sender}-message`;
     const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    
+
     let html = `<p>${text}</p>`;
     if (sender === 'bot') {
       html += `<div class="message-metadata">AI Agent • ${time}</div>`;
     }
-    
+
     msgDiv.innerHTML = html;
     messagesContainer.appendChild(msgDiv);
     messagesContainer.scrollTop = messagesContainer.scrollHeight;

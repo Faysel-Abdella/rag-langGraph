@@ -6,7 +6,7 @@ class KnowledgeBase {
         <div class="flex justify-between items-center mb-6">
            <div class="flex items-center gap-3">
              <h1 class="text-[24px] font-bold text-[#1E293B]">Knowledge Base</h1>
-             <span class="bg-gray-100 text-gray-600 px-2.5 py-0.5 rounded-md text-[13px] font-medium">12</span>
+             <span class="bg-gray-100 text-gray-600 px-2.5 py-0.5 rounded-md text-[13px] font-medium" id="kb-count">0</span>
            </div>
            <button id="add-knowledge-btn" class="flex items-center gap-2 bg-[#E5A000] hover:bg-[#D49000] text-white px-5 py-2.5 rounded-lg font-semibold transition-all text-[14px]">
              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -24,7 +24,7 @@ class KnowledgeBase {
                 <circle cx="11" cy="11" r="8"></circle>
                 <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
               </svg>
-              <input type="text" placeholder="Search by Name, or Key words" class="w-full pl-11 pr-4 py-2.5 rounded-lg border border-gray-300 focus:outline-none focus:border-[#E5A000] focus:ring-1 focus:ring-[#E5A000] transition-all bg-white text-[14px] placeholder-gray-400">
+              <input type="text" placeholder="Search by Name, or Key words" class="w-full pl-11 pr-4 py-2.5 rounded-lg border border-gray-300 focus:outline-none focus:border-[#E5A000] focus:ring-1 focus:ring-[#E5A000] transition-all bg-white text-[14px] placeholder-gray-400" id="kb-search">
            </div>
            
            <!-- Sort Button -->
@@ -54,8 +54,8 @@ class KnowledgeBase {
                     <th class="w-16 p-5"></th>
                  </tr>
               </thead>
-              <tbody class="divide-y divide-gray-100">
-                 ${this.renderRows()}
+              <tbody class="divide-y divide-gray-100" id="kb-table-body">
+                 <tr><td colspan="6" class="p-4 text-center text-gray-400 text-sm">Loading...</td></tr>
               </tbody>
            </table>
         </div>
@@ -63,7 +63,7 @@ class KnowledgeBase {
         <!-- Pagination -->
         <div class="flex justify-between items-center text-[13px] font-medium text-gray-600 px-2 mt-4">
            <div class="flex items-center gap-3">
-              <span>Page 1 of 4</span>
+              <span id="kb-page-info">Page 1 of 1</span>
               <div class="relative">
                  <select class="appearance-none bg-white border border-gray-200 rounded-md px-3 py-1.5 pr-8 focus:outline-none focus:border-gray-300 cursor-pointer text-gray-700 text-[13px]">
                     <option>8</option>
@@ -77,7 +77,7 @@ class KnowledgeBase {
            </div>
            
            <div class="flex items-center gap-4">
-              <span>Page 1 of 4</span>
+              <span id="kb-page-info2">Page 1 of 1</span>
               <div class="flex items-center gap-1">
                  <button class="w-8 h-8 flex items-center justify-center border border-gray-200 rounded-md hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors" disabled>
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-gray-400"><polyline points="11 17 6 12 11 7"></polyline><polyline points="18 17 13 12 18 7"></polyline></svg>
@@ -100,17 +100,10 @@ class KnowledgeBase {
     `;
    }
 
-   static renderRows() {
-      const data = [
-         { name: "How can I verify if I have already purchased a course.pdf", type: "PDF", size: "2.4 MB", date: "Dec 29, 2025 at 5:43 AM" },
-         { name: "How can I find the location of content within the Elite Course.docx", type: "DOCX", size: "22 Kb", date: "Dec 12, 2025 at 1:36 AM" },
-         { name: "What should I do if I can see the next lesson but am unable to click on it.", type: "DOCX", size: "10 Kb", date: "Nov 18, 2025 at 3:41 AM" },
-         { name: "It is not an option; I see the next lesson but am not able to click on it.", type: "-", size: "26 Mb", date: "Nov 14, 2025 at 12:01 PM" },
-         { name: "What should I do if I'm having trouble playing a video.docx", type: "DOCX", size: "19 Kb", date: "Oct 11, 2025 at 11:16 AM" },
-         { name: "What program includes a WhatsApp community?", type: "-", size: "178 kb", date: "Oct 02, 2025 at 10:51 PM" },
-         { name: "Is there a community with the Elite course?", type: "-", size: "12 Mb", date: "Sep 12, 2025 at 05:16 AM" },
-         { name: "Is the Elite program suitable for international customers.csv", type: "CSV", size: "25 Mb", date: "Sep 12, 2025 at 02:41 PM" }
-      ];
+   static renderRows(data = []) {
+      if (data.length === 0) {
+         return '<tr><td colspan="6" class="p-4 text-center text-gray-400 text-sm">No documents found</td></tr>';
+      }
 
       return data.map(row => `
       <tr class="group hover:bg-gray-50/50 transition-colors">
@@ -128,12 +121,12 @@ class KnowledgeBase {
                   <polyline points="10 9 9 9 8 9"></polyline>
                 </svg>
              </div>
-             <span class="text-[15px] font-semibold text-gray-700">${row.name}</span>
+             <span class="text-[15px] font-semibold text-gray-700">${this.escapeHtml(row.name)}</span>
            </div>
         </td>
-        <td class="py-5 px-4 text-[14px] text-gray-600 font-medium">${row.type}</td>
-        <td class="py-5 px-4 text-[14px] text-gray-600 font-medium">${row.size}</td>
-        <td class="py-5 px-4 text-[14px] text-gray-500">${row.date}</td>
+        <td class="py-5 px-4 text-[14px] text-gray-600 font-medium">${this.escapeHtml(row.type || '-')}</td>
+        <td class="py-5 px-4 text-[14px] text-gray-600 font-medium">${this.escapeHtml(row.size || '-')}</td>
+        <td class="py-5 px-4 text-[14px] text-gray-500">${this.formatDate(row.date)}</td>
         <td class="p-5 text-center">
            <button class="text-gray-400 hover:text-gray-600 p-2 rounded-full hover:bg-gray-100 transition-all">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -147,11 +140,54 @@ class KnowledgeBase {
     `).join('');
    }
 
+   static escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+   }
+
+   static formatDate(dateStr) {
+      if (!dateStr) return '-';
+      try {
+         const date = new Date(dateStr);
+         return date.toLocaleDateString('en-US', { 
+            year: 'numeric', 
+            month: 'short', 
+            day: 'numeric', 
+            hour: '2-digit', 
+            minute: '2-digit' 
+         });
+      } catch {
+         return dateStr;
+      }
+   }
+
    static renderModalPlaceholder() {
       return `<!-- Modal Portal Placeholder -->`;
    }
 
+   static async loadDocuments() {
+      try {
+         // For now, we'll use dummy data structure
+         // This will be replaced with real API call when backend is ready
+         const documents = [];
+         
+         // Update UI
+         document.getElementById('kb-count').textContent = documents.length;
+         document.getElementById('kb-table-body').innerHTML = this.renderRows(documents);
+         document.getElementById('kb-page-info').textContent = `Page 1 of ${Math.ceil(documents.length / 8) || 1}`;
+         document.getElementById('kb-page-info2').textContent = `Page 1 of ${Math.ceil(documents.length / 8) || 1}`;
+      } catch (error) {
+         console.error('Failed to load documents:', error);
+         document.getElementById('kb-table-body').innerHTML = 
+            '<tr><td colspan="6" class="p-4 text-center text-red-500 text-sm">Failed to load documents</td></tr>';
+      }
+   }
+
    static afterRender() {
+      // Load documents
+      this.loadDocuments();
+      
       // Inject Modal into Body to ensure it covers everything including sidebar
       const modalHtml = `
       <div id="add-modal" class="fixed inset-0 z-[100] hidden transition-opacity duration-300 opacity-0" aria-labelledby="modal-title" role="dialog" aria-modal="true">
