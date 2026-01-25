@@ -5,3 +5,5 @@
 /service-account-key.json
 /service-account-*.json
 /dist
+/src/dist
+/.rag-temp

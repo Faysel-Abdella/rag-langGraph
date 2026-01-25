@@ -72,11 +72,16 @@ app.use((req: any, res: any) => {
 // ============================================
 // START SERVER
 // ============================================
+import firebaseService from './services/firebaseService';
+
 const startServer = async () => {
   try {
-    // Initialize Vertex AI RAG Service (optional - falls back to local mode)
+    // Initialize Vertex AI RAG Service
     console.log('\n🔧 Initializing Vertex AI RAG Service...');
     await vertexAIRag.initialize();
+    
+    // Initialize Firebase Service
+    await firebaseService.initialize();
     
     // Start Express server
     app.listen(PORT, () => {

@@ -477,17 +477,6 @@ class KnowledgeBase {
                     <p class="text-[14px] text-gray-500">Choose how you want to provide the AI with knowledge.</p>
                  </div>
 
-                 <!-- Large Upload Area -->
-                 <div class="border border-dashed border-gray-300 rounded-2xl py-10 px-8 mb-6 flex flex-col items-center justify-center text-center hover:bg-gray-50 transition-colors cursor-pointer group">
-                    <div class="w-12 h-12 rounded-full bg-gray-50 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform text-gray-400">
-                       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                         <path d="M12 16.5V7.5m0 0l-4 4m4-4l4 4"/>
-                         <path d="M20.4 14.5c.8.6 1.6 1.7 1.6 3 0 1.7-1.3 3-3 3H5c-1.7 0-3-1.3-3-3 0-1.2.6-2.3 1.5-2.8"/>
-                       </svg>
-                    </div>
-                    <p class="text-[14px] font-medium text-gray-900 mb-1"><span class="font-bold">Click to upload</span> or drag and drop</p>
-                    <p class="text-[12px] text-gray-500">CSV, PDF, DOCx Formats</p>
-                 </div>
 
                  <!-- Option List -->
                  <div class="space-y-3">
@@ -531,7 +520,7 @@ class KnowledgeBase {
                        </div>
                        <div>
                           <p class="text-[14px] font-bold text-gray-900">Import .PDF, .DOCX files</p>
-                          <p class="text-[12px] text-gray-500">Coming soon in Phase 2</p>
+                          <p class="text-[12px] text-gray-500">Coming soon </p>
                        </div>
                     </button>
                  </div>
