@@ -6,6 +6,7 @@ dotenv.config();
 import cors from 'cors';
 import express, { type Request, type Response } from 'express';
 import path from 'path';
+import authRoutes from './routes/authRoutes';
 import chatRoutes from './routes/chatRoutes';
 import knowledgeRoutes from './routes/knowledgeRoutes';
 import vertexAIRag from './services/vertexAIRagService';
@@ -56,6 +57,7 @@ app.get('/admin', (req: Request, res: Response) => {
 // ============================================
 // ROUTE MOUNTING
 // ============================================
+app.use(authRoutes);
 app.use(chatRoutes);
 app.use(knowledgeRoutes);
 

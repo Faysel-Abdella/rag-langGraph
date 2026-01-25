@@ -46,7 +46,7 @@ class Sidebar {
               <div class="user-email">m@example.com</div>
             </div>
           </div>
-          <button class="logout-icon-btn">
+          <button id="logout-btn" class="logout-icon-btn" title="Logout">
             <img src="../image/logout.svg" alt="Logout" width="20" height="20">
           </button>
         </div>

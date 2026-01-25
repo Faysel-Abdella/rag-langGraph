@@ -5,6 +5,7 @@
  */
 
 import admin from 'firebase-admin';
+import { getAuth } from 'firebase-admin/auth';
 import { getFirestore } from 'firebase-admin/firestore';
 
 interface KnowledgeMetadata {
@@ -18,10 +19,18 @@ interface KnowledgeMetadata {
   updatedAt: string;
 }
 
+// Define the Admin User structure
+interface AdminUser {
+  uid: string;
+  email: string;
+  role: 'admin' | 'editor';
+}
+
 class FirebaseService {
   private db: admin.firestore.Firestore | null = null;
+  private auth: admin.auth.Auth | null = null;
   private initialized: boolean = false;
-  // Fallback to 'chatbot-rag' if FIRESTORE_DATABASE_ID is not in .env
+  // Fallback to 'chitbot-rag' if FIRESTORE_DATABASE_ID is not in .env
   private databaseId: string = process.env.FIRESTORE_DATABASE_ID || 'chatbot-rag';
 
   /**
@@ -47,10 +56,13 @@ class FirebaseService {
 
       /**
        * CRITICAL FIX: Explicitly target the named database.
-       * If your database in GCP is named 'chatbot-rag', calling admin.firestore() 
+       * If your database in GCP is named 'chitbot-rag', calling admin.firestore() 
        * without arguments will look for '(default)' and return a NOT_FOUND error.
        */
       this.db = getFirestore(this.databaseId);
+      
+      // Initialize Auth
+      this.auth = getAuth();
       
       this.initialized = true;
 
@@ -69,13 +81,58 @@ class FirebaseService {
   }
 
   /**
+   * 🔐 Verify Admin Token
+   * 1. Decodes the ID Token sent from Frontend
+   * 2. Checks if the user exists in the 'admins' Firestore collection
+   */
+  async verifyAdminToken(idToken: string): Promise<AdminUser> {
+    if (!this.auth || !this.db) {
+      await this.initialize();
+    }
+
+    try {
+      // 1. Verify the integrity of the token with Firebase Auth
+      const decodedToken = await this.auth!.verifyIdToken(idToken);
+      const { email, uid } = decodedToken;
+
+      // 2. Check Authorization: Is this user in our 'admins' collection?
+      // Check by UID (preferred)
+      let adminDoc = await this.db!.collection('admins').doc(uid).get();
+      
+      // Fallback: Check by email if UID doc doesn't exist yet
+      if (!adminDoc.exists && email) {
+        const emailQuery = await this.db!.collection('admins').where('email', '==', email).limit(1).get();
+        if (!emailQuery.empty) {
+          adminDoc = emailQuery.docs[0];
+        }
+      }
+
+      if (!adminDoc.exists) {
+        console.warn(`⚠️ Unauthorized access attempt by ${email} (${uid})`);
+        throw new Error('Unauthorized: User is not in the admins list');
+      }
+
+      const data = adminDoc.data();
+      return { 
+        uid, 
+        email: email!, 
+        role: data?.role || 'admin' 
+      };
+
+    } catch (error) {
+      console.error('Auth Verification Failed:', error);
+      throw new Error('Unauthorized');
+    }
+  }
+
+  /**
    * Save knowledge metadata to Firestore
    */
   async saveKnowledge(data: Omit<KnowledgeMetadata, 'id'>): Promise<KnowledgeMetadata> {
-    if (!this.db) throw new Error('Firebase not initialized');
+    if (!this.db) await this.initialize();
 
     try {
-      const docRef = await this.db.collection('knowledge').add({
+      const docRef = await this.db!.collection('knowledge').add({
         ...data,
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
         updatedAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -112,10 +169,10 @@ class FirebaseService {
    * Get all knowledge items
    */
   async getAllKnowledge(): Promise<KnowledgeMetadata[]> {
-    if (!this.db) throw new Error('Firebase not initialized');
+    if (!this.db) await this.initialize();
 
     try {
-      const snapshot = await this.db.collection('knowledge').orderBy('createdAt', 'desc').get();
+      const snapshot = await this.db!.collection('knowledge').orderBy('createdAt', 'desc').get();
 
       return snapshot.docs.map((doc) => {
         const data = doc.data();
@@ -140,9 +197,9 @@ class FirebaseService {
    * Get knowledge by ID
    */
   async getKnowledgeById(id: string): Promise<KnowledgeMetadata | null> {
-    if (!this.db) throw new Error('Firebase not initialized');
+    if (!this.db) await this.initialize();
 
-    const doc = await this.db.collection('knowledge').doc(id).get();
+    const doc = await this.db!.collection('knowledge').doc(id).get();
 
     if (!doc.exists) {
       return null;
@@ -161,9 +218,9 @@ class FirebaseService {
    * Get knowledge by RAG file ID
    */
   async getKnowledgeByRagFileId(ragFileId: string): Promise<KnowledgeMetadata | null> {
-    if (!this.db) throw new Error('Firebase not initialized');
+    if (!this.db) await this.initialize();
 
-    const snapshot = await this.db.collection('knowledge').where('ragFileId', '==', ragFileId).limit(1).get();
+    const snapshot = await this.db!.collection('knowledge').where('ragFileId', '==', ragFileId).limit(1).get();
 
     if (snapshot.empty) {
       return null;
@@ -183,9 +240,9 @@ class FirebaseService {
    * Update knowledge metadata
    */
   async updateKnowledge(id: string, data: Partial<KnowledgeMetadata>): Promise<void> {
-    if (!this.db) throw new Error('Firebase not initialized');
+    if (!this.db) await this.initialize();
 
-    await this.db.collection('knowledge').doc(id).update({
+    await this.db!.collection('knowledge').doc(id).update({
       ...data,
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
     });
@@ -195,22 +252,22 @@ class FirebaseService {
    * Delete knowledge metadata
    */
   async deleteKnowledge(id: string): Promise<void> {
-    if (!this.db) throw new Error('Firebase not initialized');
+    if (!this.db) await this.initialize();
 
-    await this.db.collection('knowledge').doc(id).delete();
+    await this.db!.collection('knowledge').doc(id).delete();
   }
 
   /**
    * Delete knowledge by RAG file ID
    */
   async deleteKnowledgeByRagFileId(ragFileId: string): Promise<void> {
-    if (!this.db) throw new Error('Firebase not initialized');
+    if (!this.db) await this.initialize();
 
-    const snapshot = await this.db.collection('knowledge').where('ragFileId', '==', ragFileId).get();
+    const snapshot = await this.db!.collection('knowledge').where('ragFileId', '==', ragFileId).get();
 
     if (snapshot.empty) return;
 
-    const batch = this.db.batch();
+    const batch = this.db!.batch();
     snapshot.docs.forEach((doc) => {
       batch.delete(doc.ref);
     });
@@ -222,10 +279,10 @@ class FirebaseService {
    * Get knowledge count
    */
   async getKnowledgeCount(): Promise<number> {
-    if (!this.db) throw new Error('Firebase not initialized');
+    if (!this.db) await this.initialize();
 
     try {
-      const snapshot = await this.db.collection('knowledge').count().get();
+      const snapshot = await this.db!.collection('knowledge').count().get();
       return snapshot.data().count;
     } catch (error: any) {
       if (error.code === 5) return 0;
