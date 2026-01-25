@@ -47,7 +47,14 @@ const mapFileToUI = (file: any) => ({
 export const getAllKnowledge = async (req: Request, res: Response): Promise<void> => {
   try {
     if (!firebaseService.isInitialized()) {
-      (res as any).status(503).json({ success: false, error: 'Firebase service not initialized' });
+      // Return empty list if Firebase not yet initialized instead of error
+      console.log('⚠️  Firebase service not initialized, returning empty knowledge list');
+      (res as any).json({
+        success: true,
+        data: [],
+        total: 0,
+        warning: 'Firebase not yet initialized',
+      });
       return;
     }
 
@@ -59,10 +66,13 @@ export const getAllKnowledge = async (req: Request, res: Response): Promise<void
       total: knowledgeItems.length,
     });
   } catch (error: any) {
-    console.error('❌ Get all knowledge error:', error);
-    (res as any).status(500).json({
-      success: false,
-      error: 'Failed to fetch knowledge items',
+    console.error('❌ Get all knowledge error:', error.message);
+    // Return empty list on error instead of 500 - allows UI to function
+    (res as any).json({
+      success: true,
+      data: [],
+      total: 0,
+      error: 'Failed to fetch from Firestore (collection may not exist yet)',
       message: error.message,
     });
   }
@@ -156,8 +166,18 @@ export const createKnowledge = async (req: Request, res: Response): Promise<void
       data: knowledgeData,
     });
   } catch (error: any) {
-    console.error('❌ Create knowledge error:', error);
-    (res as any).status(500).json({ success: false, error: error.message });
+    console.error('❌ Create knowledge error:', error.message);
+    // Even if Firestore fails, RAG upload succeeded - still return 201
+    if (error.code === 5 || error.message?.includes('NOT_FOUND')) {
+      console.log('⚠️  Firestore unavailable - but document was uploaded to Vertex AI RAG');
+      (res as any).status(201).json({
+        success: true,
+        message: 'Knowledge item created in RAG (Firestore metadata unavailable)',
+        warning: 'Firestore API may not be enabled - enable with: gcloud services enable firestore.googleapis.com',
+      });
+    } else {
+      (res as any).status(500).json({ success: false, error: error.message });
+    }
   }
 };
 

@@ -80,8 +80,14 @@ const startServer = async () => {
     console.log('\n🔧 Initializing Vertex AI RAG Service...');
     await vertexAIRag.initialize();
     
-    // Initialize Firebase Service
-    await firebaseService.initialize();
+    // Initialize Firebase Service (non-blocking - continue if it fails)
+    try {
+      await firebaseService.initialize();
+    } catch (error: any) {
+      console.warn('⚠️  Firebase initialization warning:', error.message);
+      console.log('💡 Tip: Ensure Firestore API is enabled in your GCP project');
+      console.log('💡 Tip: Ensure your Firebase credentials are properly configured');
+    }
     
     // Start Express server
     app.listen(PORT, () => {

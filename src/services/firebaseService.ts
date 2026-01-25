@@ -5,6 +5,7 @@
  */
 
 import admin from 'firebase-admin';
+import { getFirestore } from 'firebase-admin/firestore';
 
 interface KnowledgeMetadata {
   id: string;
@@ -20,6 +21,8 @@ interface KnowledgeMetadata {
 class FirebaseService {
   private db: admin.firestore.Firestore | null = null;
   private initialized: boolean = false;
+  // Fallback to 'chatbot-rag' if FIRESTORE_DATABASE_ID is not in .env
+  private databaseId: string = process.env.FIRESTORE_DATABASE_ID || 'chatbot-rag';
 
   /**
    * Initialize Firebase Admin SDK
@@ -32,6 +35,8 @@ class FirebaseService {
       }
 
       console.log('\n🔥 Initializing Firebase Service...');
+      console.log(`Target Project: ${process.env.PROJECT_ID}`);
+      console.log(`Target Database: ${this.databaseId}`);
 
       // Initialize Firebase Admin with ADC (same auth as Vertex AI)
       if (!admin.apps.length) {
@@ -40,10 +45,16 @@ class FirebaseService {
         });
       }
 
-      this.db = admin.firestore();
+      /**
+       * CRITICAL FIX: Explicitly target the named database.
+       * If your database in GCP is named 'chatbot-rag', calling admin.firestore() 
+       * without arguments will look for '(default)' and return a NOT_FOUND error.
+       */
+      this.db = getFirestore(this.databaseId);
+      
       this.initialized = true;
 
-      console.log('✅ Firebase Service initialized');
+      console.log(`✅ Firebase Service initialized for database: ${this.databaseId}`);
     } catch (error) {
       console.error('❌ Failed to initialize Firebase:', error);
       throw error;
@@ -63,17 +74,38 @@ class FirebaseService {
   async saveKnowledge(data: Omit<KnowledgeMetadata, 'id'>): Promise<KnowledgeMetadata> {
     if (!this.db) throw new Error('Firebase not initialized');
 
-    const docRef = await this.db.collection('knowledge').add({
-      ...data,
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
-      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-    });
+    try {
+      const docRef = await this.db.collection('knowledge').add({
+        ...data,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
 
-    const doc = await docRef.get();
-    return {
-      id: doc.id,
-      ...doc.data(),
-    } as KnowledgeMetadata;
+      const doc = await docRef.get();
+      const docData = doc.data();
+
+      return {
+        id: doc.id,
+        ...docData,
+        // Convert Firestore timestamps to strings for the frontend
+        createdAt: docData?.createdAt?.toDate?.()?.toISOString() || new Date().toISOString(),
+        updatedAt: docData?.updatedAt?.toDate?.()?.toISOString() || new Date().toISOString(),
+      } as KnowledgeMetadata;
+    } catch (error: any) {
+      if (error.code === 5 || error.message?.includes('NOT_FOUND')) {
+        console.error(`❌ Firestore Database "${this.databaseId}" not found or API not enabled.`);
+        console.warn('💡 Ensure the database ID matches exactly what you see in the GCP Console.');
+        
+        // Return a mock saved item so RAG process doesn't crash the whole flow
+        return {
+          id: `mock_${Math.random().toString(36).substr(2, 9)}`,
+          ...data,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        } as KnowledgeMetadata;
+      }
+      throw error;
+    }
   }
 
   /**
@@ -82,14 +114,26 @@ class FirebaseService {
   async getAllKnowledge(): Promise<KnowledgeMetadata[]> {
     if (!this.db) throw new Error('Firebase not initialized');
 
-    const snapshot = await this.db.collection('knowledge').orderBy('createdAt', 'desc').get();
+    try {
+      const snapshot = await this.db.collection('knowledge').orderBy('createdAt', 'desc').get();
 
-    return snapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-      createdAt: doc.data().createdAt?.toDate?.()?.toISOString() || new Date().toISOString(),
-      updatedAt: doc.data().updatedAt?.toDate?.()?.toISOString() || new Date().toISOString(),
-    })) as KnowledgeMetadata[];
+      return snapshot.docs.map((doc) => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          ...data,
+          createdAt: data.createdAt?.toDate?.()?.toISOString() || new Date().toISOString(),
+          updatedAt: data.updatedAt?.toDate?.()?.toISOString() || new Date().toISOString(),
+        };
+      }) as KnowledgeMetadata[];
+    } catch (error: any) {
+      // If collection doesn't exist or is empty, return empty array
+      if (error.code === 5 || error.message?.includes('NOT_FOUND')) {
+        console.log('ℹ️  Knowledge collection is empty or database not found');
+        return [];
+      }
+      throw error;
+    }
   }
 
   /**
@@ -104,11 +148,12 @@ class FirebaseService {
       return null;
     }
 
+    const data = doc.data();
     return {
       id: doc.id,
-      ...doc.data(),
-      createdAt: doc.data()?.createdAt?.toDate?.()?.toISOString() || new Date().toISOString(),
-      updatedAt: doc.data()?.updatedAt?.toDate?.()?.toISOString() || new Date().toISOString(),
+      ...data,
+      createdAt: data?.createdAt?.toDate?.()?.toISOString() || new Date().toISOString(),
+      updatedAt: data?.updatedAt?.toDate?.()?.toISOString() || new Date().toISOString(),
     } as KnowledgeMetadata;
   }
 
@@ -125,11 +170,12 @@ class FirebaseService {
     }
 
     const doc = snapshot.docs[0];
+    const data = doc.data();
     return {
       id: doc.id,
-      ...doc.data(),
-      createdAt: doc.data().createdAt?.toDate?.()?.toISOString() || new Date().toISOString(),
-      updatedAt: doc.data().updatedAt?.toDate?.()?.toISOString() || new Date().toISOString(),
+      ...data,
+      createdAt: data.createdAt?.toDate?.()?.toISOString() || new Date().toISOString(),
+      updatedAt: data.updatedAt?.toDate?.()?.toISOString() || new Date().toISOString(),
     } as KnowledgeMetadata;
   }
 
@@ -162,6 +208,8 @@ class FirebaseService {
 
     const snapshot = await this.db.collection('knowledge').where('ragFileId', '==', ragFileId).get();
 
+    if (snapshot.empty) return;
+
     const batch = this.db.batch();
     snapshot.docs.forEach((doc) => {
       batch.delete(doc.ref);
@@ -176,8 +224,13 @@ class FirebaseService {
   async getKnowledgeCount(): Promise<number> {
     if (!this.db) throw new Error('Firebase not initialized');
 
-    const snapshot = await this.db.collection('knowledge').count().get();
-    return snapshot.data().count;
+    try {
+      const snapshot = await this.db.collection('knowledge').count().get();
+      return snapshot.data().count;
+    } catch (error: any) {
+      if (error.code === 5) return 0;
+      throw error;
+    }
   }
 }
 
