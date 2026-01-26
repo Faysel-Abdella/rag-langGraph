@@ -30,7 +30,7 @@ class FirebaseService {
   private db: admin.firestore.Firestore | null = null;
   private auth: admin.auth.Auth | null = null;
   private initialized: boolean = false;
-  // Fallback to 'chitbot-rag' if FIRESTORE_DATABASE_ID is not in .env
+  // Fallback to 'chatbot-rag' if FIRESTORE_DATABASE_ID is not in .env
   private databaseId: string = process.env.FIRESTORE_DATABASE_ID || 'chatbot-rag';
 
   /**
@@ -61,6 +61,9 @@ class FirebaseService {
        */
       this.db = getFirestore(this.databaseId);
       
+      // Enable ignoreUndefinedProperties to handle cases where fields might be undefined
+      this.db.settings({ ignoreUndefinedProperties: true });
+      
       // Initialize Auth
       this.auth = getAuth();
       
@@ -81,6 +84,13 @@ class FirebaseService {
   }
 
   /**
+   * Get the Firestore instance (for use by other services)
+   */
+  getDb(): admin.firestore.Firestore | null {
+    return this.db;
+  }
+
+  /**
    * 🔐 Verify Admin Token
    * 1. Decodes the ID Token sent from Frontend
    * 2. Checks if the user exists in the 'admins' Firestore collection
@@ -96,10 +106,8 @@ class FirebaseService {
       const { email, uid } = decodedToken;
 
       // 2. Check Authorization: Is this user in our 'admins' collection?
-      // Check by UID (preferred)
       let adminDoc = await this.db!.collection('admins').doc(uid).get();
       
-      // Fallback: Check by email if UID doc doesn't exist yet
       if (!adminDoc.exists && email) {
         const emailQuery = await this.db!.collection('admins').where('email', '==', email).limit(1).get();
         if (!emailQuery.empty) {
@@ -126,6 +134,59 @@ class FirebaseService {
   }
 
   /**
+   * Search cache for a previously answered identical question
+   */
+  async getCachedAnswer(question: string): Promise<string | null> {
+    if (!this.db) await this.initialize();
+    
+    try {
+      const sanitizedQ = question.trim().toLowerCase();
+      const snapshot = await this.db!
+        .collection('artifacts')
+        .doc(process.env.PROJECT_ID || 'default')
+        .collection('public')
+        .doc('data')
+        .collection('chat_cache')
+        .where('question', '==', sanitizedQ)
+        .limit(1)
+        .get();
+
+      if (snapshot.empty) return null;
+      
+      return snapshot.docs[0].data().answer;
+    } catch (error) {
+      console.error('Cache lookup failed:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Save a new Q&A pair to the public cache
+   */
+  async saveToCache(question: string, answer: string): Promise<void> {
+    if (!this.db) await this.initialize();
+
+    try {
+      const sanitizedQ = question.trim().toLowerCase();
+      const appId = process.env.PROJECT_ID || 'default';
+      
+      await this.db!
+        .collection('artifacts')
+        .doc(appId)
+        .collection('public')
+        .doc('data')
+        .collection('chat_cache')
+        .add({
+          question: sanitizedQ,
+          answer: answer,
+          timestamp: admin.firestore.FieldValue.serverTimestamp()
+        });
+    } catch (error) {
+      console.error('Failed to save to cache:', error);
+    }
+  }
+
+  /**
    * Save knowledge metadata to Firestore
    */
   async saveKnowledge(data: Omit<KnowledgeMetadata, 'id'>): Promise<KnowledgeMetadata> {
@@ -144,16 +205,12 @@ class FirebaseService {
       return {
         id: doc.id,
         ...docData,
-        // Convert Firestore timestamps to strings for the frontend
         createdAt: docData?.createdAt?.toDate?.()?.toISOString() || new Date().toISOString(),
         updatedAt: docData?.updatedAt?.toDate?.()?.toISOString() || new Date().toISOString(),
       } as KnowledgeMetadata;
     } catch (error: any) {
       if (error.code === 5 || error.message?.includes('NOT_FOUND')) {
         console.error(`❌ Firestore Database "${this.databaseId}" not found or API not enabled.`);
-        console.warn('💡 Ensure the database ID matches exactly what you see in the GCP Console.');
-        
-        // Return a mock saved item so RAG process doesn't crash the whole flow
         return {
           id: `mock_${Math.random().toString(36).substr(2, 9)}`,
           ...data,
@@ -184,9 +241,7 @@ class FirebaseService {
         };
       }) as KnowledgeMetadata[];
     } catch (error: any) {
-      // If collection doesn't exist or is empty, return empty array
       if (error.code === 5 || error.message?.includes('NOT_FOUND')) {
-        console.log('ℹ️  Knowledge collection is empty or database not found');
         return [];
       }
       throw error;
@@ -201,9 +256,7 @@ class FirebaseService {
 
     const doc = await this.db!.collection('knowledge').doc(id).get();
 
-    if (!doc.exists) {
-      return null;
-    }
+    if (!doc.exists) return null;
 
     const data = doc.data();
     return {
@@ -222,9 +275,7 @@ class FirebaseService {
 
     const snapshot = await this.db!.collection('knowledge').where('ragFileId', '==', ragFileId).limit(1).get();
 
-    if (snapshot.empty) {
-      return null;
-    }
+    if (snapshot.empty) return null;
 
     const doc = snapshot.docs[0];
     const data = doc.data();
@@ -283,6 +334,173 @@ class FirebaseService {
 
     try {
       const snapshot = await this.db!.collection('knowledge').count().get();
+      return snapshot.data().count;
+    } catch (error: any) {
+      if (error.code === 5) return 0;
+      throw error;
+    }
+  }
+
+  // ============================================
+  // CONVERSATION METHODS
+  // ============================================
+
+  /**
+   * Start a new conversation session
+   */
+  async startConversation(sessionId: string, userIdentifier?: string): Promise<void> {
+    if (!this.db) await this.initialize();
+
+    await this.db!.collection('conversations').doc(sessionId).set({
+      id: sessionId,
+      userId: userIdentifier || 'anonymous',
+      status: 'active',
+      startedAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      messageCount: 0,
+      lastMessage: '',
+    });
+  }
+
+  /**
+   * Add a message to a conversation
+   */
+  async addMessage(sessionId: string, sender: 'user' | 'assistant', content: string): Promise<void> {
+    if (!this.db) await this.initialize();
+
+    const timestamp = admin.firestore.FieldValue.serverTimestamp();
+    
+    // Add message to subcollection
+    await this.db!.collection('conversations')
+      .doc(sessionId)
+      .collection('messages')
+      .add({
+        sender,
+        content,
+        timestamp,
+      });
+
+    // Update conversation metadata
+    await this.db!.collection('conversations').doc(sessionId).update({
+      lastMessage: content.substring(0, 100),
+      updatedAt: timestamp,
+      messageCount: admin.firestore.FieldValue.increment(1),
+    });
+  }
+
+  /**
+   * Get all conversations (with pagination)
+   */
+  async getAllConversations(page: number = 1, limit: number = 50): Promise<any[]> {
+    if (!this.db) await this.initialize();
+
+    try {
+      const skip = (page - 1) * limit;
+      const snapshot = await this.db!
+        .collection('conversations')
+        .orderBy('updatedAt', 'desc')
+        .limit(limit)
+        .offset(skip)
+        .get();
+
+      return snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+    } catch (error: any) {
+      if (error.code === 5) return [];
+      throw error;
+    }
+  }
+
+  /**
+   * Get a specific conversation
+   */
+  async getConversation(sessionId: string): Promise<any> {
+    if (!this.db) await this.initialize();
+
+    try {
+      const doc = await this.db!.collection('conversations').doc(sessionId).get();
+      if (!doc.exists) return null;
+
+      return {
+        id: doc.id,
+        ...doc.data(),
+      };
+    } catch (error: any) {
+      if (error.code === 5) return null;
+      throw error;
+    }
+  }
+
+  /**
+   * Get messages for a conversation
+   */
+  async getConversationMessages(sessionId: string): Promise<any[]> {
+    if (!this.db) await this.initialize();
+
+    try {
+      const snapshot = await this.db!
+        .collection('conversations')
+        .doc(sessionId)
+        .collection('messages')
+        .orderBy('timestamp', 'asc')
+        .get();
+
+      return snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+    } catch (error: any) {
+      if (error.code === 5) return [];
+      throw error;
+    }
+  }
+
+  /**
+   * Update conversation status
+   */
+  async updateConversationStatus(sessionId: string, status: string): Promise<void> {
+    if (!this.db) await this.initialize();
+
+    await this.db!.collection('conversations').doc(sessionId).update({
+      status,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+  }
+
+  /**
+   * Get conversations by status
+   */
+  async getConversationsByStatus(status: string, limit: number = 50): Promise<any[]> {
+    if (!this.db) await this.initialize();
+
+    try {
+      const snapshot = await this.db!
+        .collection('conversations')
+        .where('status', '==', status)
+        .orderBy('updatedAt', 'desc')
+        .limit(limit)
+        .get();
+
+      return snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+    } catch (error: any) {
+      if (error.code === 5) return [];
+      throw error;
+    }
+  }
+
+  /**
+   * Get conversation count
+   */
+  async getConversationCount(): Promise<number> {
+    if (!this.db) await this.initialize();
+
+    try {
+      const snapshot = await this.db!.collection('conversations').count().get();
       return snapshot.data().count;
     } catch (error: any) {
       if (error.code === 5) return 0;

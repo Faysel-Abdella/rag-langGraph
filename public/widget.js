@@ -158,6 +158,7 @@
         line-height: 1.4;
         padding: 12px 18px;
         margin: 0;
+        white-space: pre-wrap;
       }
 
       .bot-message { align-self: flex-start; }
@@ -171,6 +172,10 @@
         color: #8E8E8E;
         margin-top: 6px;
         padding-left: 4px;
+      }
+
+      .chatbot-input-container {
+        padding-top: 10px;
       }
 
       .chatbot-input-wrapper {
@@ -191,6 +196,7 @@
         font-family: 'Outfit', sans-serif;
         font-size: 14.5px;
         color: #333;
+        background: transparent;
       }
 
       .chatbot-send-btn {
@@ -203,6 +209,13 @@
         align-items: center;
         justify-content: center;
         cursor: pointer;
+        transition: opacity 0.2s;
+      }
+      .chatbot-send-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+      .chatbot-toggle-container {
+        display: flex;
+        justify-content: flex-end;
       }
 
       .chatbot-toggle {
@@ -220,11 +233,7 @@
 
       /* Mobile Responsive Styles */
       @media (max-width: 768px) {
-        #ai-chatbot-widget {
-          bottom: 16px;
-          right: 16px;
-        }
-
+        #ai-chatbot-widget { bottom: 16px; right: 16px; }
         .chatbot-window {
           width: calc(100vw - 32px);
           max-width: 410px;
@@ -232,143 +241,14 @@
           max-height: 705px;
           bottom: 64px;
         }
-
-        .chatbot-messages {
-          padding: 16px 16px;
-          gap: 10px;
-        }
-
-        .chat-intro-text {
-          font-size: 13px;
-          margin: 6px 0 12px 0;
-        }
-
-        .chatbot-message {
-          max-width: 90%;
-        }
-
-        .chatbot-message p {
-          font-size: 14px;
-          padding: 10px 16px;
-        }
-
-        .message-metadata {
-          font-size: 11px;
-          margin-top: 4px;
-        }
-
-        .chatbot-input-wrapper {
-          margin: 0 16px 16px 16px;
-          padding: 6px 6px 6px 16px;
-          height: 48px;
-        }
-
-        .chatbot-input {
-          font-size: 14px;
-        }
-
-        .chatbot-send-btn {
-          width: 36px;
-          height: 36px;
-        }
-
-        .chatbot-send-btn svg {
-          width: 18px;
-          height: 18px;
-        }
-
-        .icon-btn svg {
-          width: 16px;
-          height: 16px;
-        }
-
-        .chatbot-header {
-          height: 64px;
-          padding: 0 16px;
-          gap: 8px;
-        }
-
-        .header-logo {
-          width: 32px;
-          height: 32px;
-        }
-
-        .header-title {
-          font-size: 16px;
-        }
+        .chatbot-messages { padding: 16px 16px; gap: 10px; }
+        .chatbot-input-wrapper { margin: 0 16px 16px 16px; height: 48px; }
       }
 
       @media (max-width: 480px) {
-        #ai-chatbot-widget {
-          bottom: 12px;
-          right: 12px;
-        }
-
-        .chatbot-window {
-          width: calc(100vw - 24px);
-          bottom: 60px;
-        }
-
-        .chatbot-toggle {
-          width: 48px;
-          height: 48px;
-        }
-
-        .chatbot-toggle svg {
-          width: 20px;
-          height: 20px;
-        }
-
-        .chatbot-header {
-          height: 56px;
-          padding: 0 12px;
-        }
-
-        .header-logo {
-          width: 28px;
-          height: 28px;
-        }
-
-        .header-logo img {
-          width: 28px !important;
-          height: 28px !important;
-        }
-
-        .header-title {
-          font-size: 14px;
-        }
-
-        .chat-intro-text {
-          font-size: 12px;
-        }
-
-        .chatbot-message p {
-          font-size: 13px;
-          padding: 8px 14px;
-        }
-
-        .message-metadata {
-          font-size: 10px;
-        }
-
-        .chatbot-input-wrapper {
-          margin: 0 12px 12px 12px;
-          padding: 4px 4px 4px 14px;
-          height: 44px;
-        }
-
-        .chatbot-input {
-          font-size: 13px;
-        }
-
-        .chatbot-send-btn {
-          width: 36px;
-          height: 36px;
-        }
-
-        .icon-btn {
-          padding: 2px;
-        }
+        #ai-chatbot-widget { bottom: 12px; right: 12px; }
+        .chatbot-window { width: calc(100vw - 24px); bottom: 60px; }
+        .chatbot-toggle { width: 48px; height: 48px; }
       }
     `;
     document.head.appendChild(style);
@@ -381,7 +261,6 @@
     const input = document.getElementById('chatbot-input');
     const sendBtn = document.getElementById('chatbot-send');
 
-    // Generate or retrieve session ID
     const sessionId = getOrCreateSessionId();
 
     toggleBtn.addEventListener('click', () => {
@@ -399,23 +278,67 @@
       input.value = '';
       sendBtn.disabled = true;
 
+      // Placeholder for streaming bot response
+      const { textNode, metadataNode } = addStreamingMessage();
+      let fullResponse = "";
+
       try {
-        // Send message to API
         const response = await fetch('/api/chat', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ message, sessionId }),
         });
 
         if (!response.ok) throw new Error('Failed to send message');
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+
+          const chunk = decoder.decode(value);
+          const lines = chunk.split('\n');
+          
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              const dataStr = line.replace('data: ', '').trim();
+              if (!dataStr || dataStr === '[DONE]') continue;
+              
+              try {
+                const parsed = JSON.parse(dataStr);
+                
+                // Handle streaming chunks - the format is { chunk: "text" }
+                if (parsed.chunk) {
+                  fullResponse += parsed.chunk;
+                  textNode.innerText = fullResponse;
+                  const messagesContainer = document.getElementById('chatbot-messages');
+                  messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                }
+                
+                // Handle errors
+                if (parsed.error) {
+                  textNode.innerText = parsed.error;
+                }
+              } catch (e) {
+                console.debug('Parse error:', e);
+              }
+            }
+          }
+        }
         
-        const data = await response.json();
-        addMessage(data.answer || "Sorry, I couldn't process that.", 'bot');
+        // Final update with timestamp
+        metadataNode.innerText = `AI Agent • ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+        
+        // Replace placeholder message with final response if empty
+        if (!fullResponse) {
+          textNode.innerText = 'Sorry, I could not generate a response.';
+        }
+
       } catch (error) {
         console.error('Error sending message:', error);
-        addMessage("Sorry, I'm having trouble connecting. Please try again later.", 'bot');
+        textNode.innerText = "Sorry, I'm having trouble connecting. Please try again later.";
       } finally {
         sendBtn.disabled = false;
         input.focus();
@@ -451,6 +374,26 @@
     msgDiv.innerHTML = html;
     messagesContainer.appendChild(msgDiv);
     messagesContainer.scrollTop = messagesContainer.scrollHeight;
+  }
+
+  function addStreamingMessage() {
+    const messagesContainer = document.getElementById('chatbot-messages');
+    const msgDiv = document.createElement('div');
+    msgDiv.className = 'chatbot-message bot-message';
+    
+    const p = document.createElement('p');
+    p.innerText = '...';
+    
+    const metadata = document.createElement('div');
+    metadata.className = 'message-metadata';
+    metadata.innerText = 'AI Agent • typing...';
+    
+    msgDiv.appendChild(p);
+    msgDiv.appendChild(metadata);
+    messagesContainer.appendChild(msgDiv);
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    
+    return { textNode: p, metadataNode: metadata };
   }
 
   initChatbot();
