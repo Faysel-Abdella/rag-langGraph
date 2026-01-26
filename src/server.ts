@@ -12,7 +12,7 @@ import knowledgeRoutes from './routes/knowledgeRoutes';
 import vertexAIRag from './services/vertexAIRagService';
 
 const app: any = express();
-const PORT: number = parseInt(process.env.PORT || '3000');
+const PORT: number = process.env.PORT || 3000;
 
 // ============================================
 // MIDDLEWARE
