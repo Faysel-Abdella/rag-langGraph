@@ -91,7 +91,7 @@ class Conversations {
       }
 
       const html = conversations.map((conv, idx) => {
-         // Handle Firestore timestamp objects
+         // Handle Firestore timestamp objects.
          let startTime;
          if (conv.startedAt && typeof conv.startedAt === 'object' && conv.startedAt._seconds) {
             // Firestore Timestamp object
