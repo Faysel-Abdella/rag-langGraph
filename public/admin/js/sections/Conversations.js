@@ -177,7 +177,7 @@ class Conversations {
          });
       }
 
-      // Handle window resize: reset to desktop layout when leaving mobile
+      // Handle window resize: reset to desktop layout when leaving mobil
       window.addEventListener('resize', () => {
          if (!isMobile()) {
             conversationList.classList.remove('hidden');
