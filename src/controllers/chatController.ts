@@ -147,7 +147,7 @@ const workflow = new StateGraph<{ __root__: any }>({
       
       let finalAnswer = answer;
       if (cached && answer) {
-        finalAnswer = `${answer}\n\n*(Answer retrieved from cache)*`;
+        finalAnswer = `${answer}`;
       }
       
       return {

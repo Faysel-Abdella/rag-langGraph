@@ -183,10 +183,11 @@ class VertexAIRagService {
 
   /**
    * PURE RAG CALL (Stateless) with local caching
+   * Enhanced prompt for better greeting handling and email collection
    */
   async retrieveContextsWithRAG(query: string, topK = 3): Promise<string> {
     if (!this.initialized || !this.client) {
-      return 'I cannot answer right now. Please try again later.';
+      return 'I apologize, but I\'m currently unavailable. Please try again in a moment.';
     }
 
     // Check local cache first
@@ -201,7 +202,22 @@ class VertexAIRagService {
     try {
       console.log(`Making RAG API call for: ${query.substring(0, 50)}...`);
       
+      // Enhanced system prompt for better greeting handling and email collection
+      const systemPrompt = `You are a helpful and professional customer service AI assistant.
+
+**Greeting Handling**: Respond warmly to greetings. For "Hi", "Hello", etc., say "Hi there! 👋 How can I help you today?"
+
+**Knowledge Base Answers**: Provide clear, accurate answers based on knowledge base information. Be professional and courteous.
+
+**Email Collection**: If you cannot find the answer in the knowledge base, acknowledge the question professionally and politely ask for their email: "I'd love to help! Could you share your email so our team can get back to you with the answer?"
+
+**Tone**: Professional yet friendly, clear and concise, empathetic. Keep responses to 1-4 sentences.`;
+      
       const res = await this.client.post(geminiUrl, {
+        systemInstruction: {
+          role: 'user',
+          parts: [{ text: systemPrompt }]
+        },
         contents: [{ role: 'user', parts: [{ text: query }] }],
         tools: [{
           retrieval: {
@@ -221,9 +237,9 @@ class VertexAIRagService {
 
       let answer = res.data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
 
-      if (!answer || answer.length < 20) {
-        answer = `I don't have information about that in our knowledge base right now.
-Please share your email and our team will get back to you.`;
+      // Fallback response if no answer is generated
+      if (!answer || answer.length < 15) {
+        answer = `That's a great question! I don't have that specific information in our knowledge base at the moment. Could you share your email address? Our team will be happy to get back to you with a detailed answer shortly.`;
       }
 
       // Update local cache
@@ -232,7 +248,7 @@ Please share your email and our team will get back to you.`;
       return answer;
     } catch (err: any) {
       console.error('[RAG] Error:', err.message);
-      return 'An error occurred while searching the knowledge base. Please share your email.';
+      return `I apologize for the inconvenience. I'm having trouble retrieving information at the moment. Would you mind sharing your email? Our support team will be delighted to assist you.`;
     }
   }
 
