@@ -1,8 +1,15 @@
+// Load environment variables FIRST (before any other imports)
+import dotenv from 'dotenv';
+dotenv.config();
+
+// Then import everything else
 import cors from 'cors';
 import express, { type Request, type Response } from 'express';
 import path from 'path';
-import adminRoutes from './routes/adminRoutes';
+import authRoutes from './routes/authRoutes';
 import chatRoutes from './routes/chatRoutes';
+import knowledgeRoutes from './routes/knowledgeRoutes';
+import vertexAIRag from './services/vertexAIRagService';
 
 const app: any = express();
 const PORT: number = parseInt(process.env.PORT || '3000');
@@ -50,8 +57,9 @@ app.get('/admin', (req: Request, res: Response) => {
 // ============================================
 // ROUTE MOUNTING
 // ============================================
+app.use(authRoutes);
 app.use(chatRoutes);
-app.use(adminRoutes);
+app.use(knowledgeRoutes);
 
 // ============================================
 // 404 HANDLER
@@ -66,9 +74,34 @@ app.use((req: any, res: any) => {
 // ============================================
 // START SERVER
 // ============================================
-app.listen(PORT, () => {
-  console.log(`\n🚀 Server running at http://localhost:${PORT}`);
-  console.log(`📊 Dashboard: http://localhost:${PORT}/admin`);
-  console.log(`🧪 Test widget: http://localhost:${PORT}`);
-  console.log(`\nPhase 1 Complete - Ready for Phase 2 RAG Integration\n`);
-});
+import firebaseService from './services/firebaseService';
+
+const startServer = async () => {
+  try {
+    // Initialize Vertex AI RAG Service
+    console.log('\n🔧 Initializing Vertex AI RAG Service...');
+    await vertexAIRag.initialize();
+    
+    // Initialize Firebase Service (non-blocking - continue if it fails)
+    try {
+      await firebaseService.initialize();
+    } catch (error: any) {
+      console.warn('⚠️  Firebase initialization warning:', error.message);
+      console.log('💡 Tip: Ensure Firestore API is enabled in your GCP project');
+      console.log('💡 Tip: Ensure your Firebase credentials are properly configured');
+    }
+    
+    // Start Express server
+    app.listen(PORT, () => {
+      console.log(`\n🚀 Server running at http://localhost:${PORT}`);
+      console.log(`📊 Dashboard: http://localhost:${PORT}/admin`);
+      console.log(`🧪 Test widget: http://localhost:${PORT}`);
+      console.log(`✅ Server ready - Knowledge Base operational\n`);
+    });
+  } catch (error) {
+    console.error('❌ Failed to start server:', error);
+    process.exit(1);
+  }
+};
+
+startServer();

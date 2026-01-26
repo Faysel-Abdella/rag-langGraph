@@ -2,3 +2,8 @@
 /src/dist
 /src/.env
 /.env
+/service-account-key.json
+/service-account-*.json
+/dist
+/src/dist
+/.rag-temp

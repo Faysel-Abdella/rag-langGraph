@@ -355,7 +355,7 @@
 
         <div class="form-group form-group-password">
           <label for="password">Password</label>
-          <input type="password" id="password" name="password" placeholder="••••••3" required />
+          <input type="password" id="password" name="password" placeholder="••••••••" required />
           <button type="button" class="password-toggle" id="passwordToggle">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
@@ -376,16 +376,24 @@
       </form>
 
       <div class="login-footer">
-      </div>
+      </div> 
     </div>
   </div>
 
+  <!-- Firebase SDKs - No longer needed, using backend authentication -->
   <script>
+    const loginForm = document.getElementById('loginForm');
+    const emailInput = document.getElementById('email');
+    const passwordInput = document.getElementById('password');
+    const rememberMeCheckbox = document.getElementById('rememberMe');
+    const loginBtn = document.getElementById('loginBtn');
+    const errorMessage = document.getElementById('errorMessage');
+    const successMessage = document.getElementById('successMessage');
+
     // ============================================
     // PASSWORD TOGGLE FUNCTIONALITY
     // ============================================
     const passwordToggle = document.getElementById('passwordToggle');
-    const passwordInput = document.getElementById('password');
 
     if (passwordToggle) {
       passwordToggle.addEventListener('click', (e) => {
@@ -394,7 +402,6 @@
         passwordInput.setAttribute('type', type);
         
         // Update icon
-        const svg = passwordToggle.querySelector('svg');
         if (type === 'text') {
           passwordToggle.innerHTML = `
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -416,13 +423,6 @@
     // ============================================
     // LOGIN FORM HANDLER
     // ============================================
-    const loginForm = document.getElementById('loginForm');
-    const emailInput = document.getElementById('email');
-    const rememberMeCheckbox = document.getElementById('rememberMe');
-    const loginBtn = document.getElementById('loginBtn');
-    const errorMessage = document.getElementById('errorMessage');
-    const successMessage = document.getElementById('successMessage');
-
     // Load saved credentials if remember me was checked
     window.addEventListener('load', () => {
       const savedEmail = localStorage.getItem('adminEmail');
@@ -451,24 +451,14 @@
         return;
       }
 
-      if (!isValidEmail(email)) {
-        showError('Please enter a valid email address');
-        return;
-      }
-
-      if (password.length < 4) {
-        showError('Password must be at least 4 characters');
-        return;
-      }
-
       // Show loading state
       const originalText = loginBtn.textContent;
       loginBtn.disabled = true;
       loginBtn.innerHTML = '<div class="loading"><span></span><span></span><span></span></div>';
 
       try {
-        // Call real API for authentication
-        const response = await fetch('/api/admin/login', {
+        // Call backend login endpoint instead of Firebase SDK
+        const response = await fetch('/api/auth/login', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -478,8 +468,8 @@
 
         const data = await response.json();
 
-        if (!response.ok) {
-          showError(data.error || 'Login failed. Please try again.');
+        if (!response.ok || !data.success) {
+          showError(data.error || 'Login failed');
           loginBtn.disabled = false;
           loginBtn.textContent = originalText;
           return;
@@ -494,17 +484,12 @@
           localStorage.removeItem('adminRememberMe');
         }
 
-        // Set auth session
+        // Set session data
         sessionStorage.setItem('adminLoggedIn', 'true');
-        sessionStorage.setItem('adminEmail', email);
-        sessionStorage.setItem('adminLoginTime', new Date().toISOString());
-        
-        // Save auth token if provided
-        if (data.token) {
-          sessionStorage.setItem('authToken', data.token);
-        }
+        sessionStorage.setItem('adminEmail', data.user.email);
+        sessionStorage.setItem('authToken', data.token);
 
-        showSuccess(`Welcome back! Redirecting...`);
+        showSuccess('Welcome back! Redirecting...');
 
         // Redirect after short delay
         setTimeout(() => {
@@ -513,43 +498,29 @@
 
       } catch (error) {
         console.error('Login error:', error);
-        showError('Login failed. Please check your connection and try again.');
+        showError('Network error. Please try again.');
         loginBtn.disabled = false;
         loginBtn.textContent = originalText;
       }
     });
 
-    // Validate email format
-    function isValidEmail(email) {
-      const regex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      return regex.test(email);
-    }
-
-    // Show error message
+    // UI Helper: Show error message
     function showError(message) {
       errorMessage.textContent = '✕ ' + message;
       errorMessage.classList.add('show');
-      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
-    // Show success message
+    // UI Helper: Show success message
     function showSuccess(message) {
       successMessage.textContent = '✓ ' + message;
       successMessage.classList.add('show');
     }
 
     // Handle forgot password
-    function handleForgotPassword(e) {
+    window.handleForgotPassword = function(e) {
       e.preventDefault();
-      showError('Phase 3 Feature: Password reset coming soon');
+      showError('Password reset coming soon. Please contact your administrator.');
     }
-
-    // Allow Enter key to submit
-    passwordInput.addEventListener('keypress', (e) => {
-      if (e.key === 'Enter') {
-        loginForm.dispatchEvent(new Event('submit'));
-      }
-    });
   </script>
 </body>
 
