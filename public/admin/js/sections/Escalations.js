@@ -130,15 +130,30 @@ class Escalations {
            </span>
         </td>
         <td class="py-5 px-4 text-[14px] text-gray-500">${this.formatDate(row.date)}</td>
-        <td class="p-5 text-center">
-           <button class="text-gray-400 hover:text-gray-600 p-2 rounded-full hover:bg-gray-100 transition-all">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                 <circle cx="12" cy="12" r="1"></circle>
-                 <circle cx="12" cy="5" r="1"></circle>
-                 <circle cx="12" cy="19" r="1"></circle>
-              </svg>
-           </button>
-        </td>
+         <td class="p-5 text-center">
+            <div class="flex items-center justify-center gap-2">
+               <button 
+                  data-action="toggle-status" 
+                  data-id="${row.id}" 
+                  data-status="${row.status}"
+                  title="${row.status === 'resolved' ? 'Mark as Open' : 'Mark as Resolved'}"
+                  class="p-2 rounded-full transition-all ${row.status === 'resolved' ? 'text-green-600 bg-green-50 hover:bg-green-100' : 'text-gray-400 hover:text-green-600 hover:bg-gray-100'}">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                     <polyline points="20 6 9 17 4 12"></polyline>
+                  </svg>
+               </button>
+               <button 
+                  data-action="delete" 
+                  data-id="${row.id}" 
+                  title="Delete Escalation"
+                  class="text-gray-400 hover:text-red-500 p-2 rounded-full hover:bg-red-50 transition-all">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                     <polyline points="3 6 5 6 21 6"></polyline>
+                     <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                  </svg>
+               </button>
+            </div>
+         </td>
       </tr>
     `).join('');
    }
@@ -168,12 +183,12 @@ class Escalations {
       if (!dateStr) return '-';
       try {
          const date = new Date(dateStr);
-         return date.toLocaleDateString('en-US', { 
-            year: 'numeric', 
-            month: 'short', 
-            day: 'numeric', 
-            hour: '2-digit', 
-            minute: '2-digit' 
+         return date.toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
          });
       } catch {
          return dateStr;
@@ -183,26 +198,26 @@ class Escalations {
    static async loadEscalations(page = 1) {
       this.state.isLoading = true;
       this.state.currentPage = page;
-      
+
       const tbody = document.getElementById('escalations-table-body');
       if (tbody) tbody.innerHTML = '<tr><td colspan="6" class="p-8 text-center text-gray-400 text-sm">Loading...</td></tr>';
 
       try {
-         const api = new APIService(); 
+         const api = new APIService();
          const result = await api.getEscalations(this.state.currentPage, this.state.limit);
-         
+
          const escalations = result.escalations || [];
          this.state.total = result.total || 0;
          this.state.totalPages = result.totalPages || Math.ceil(this.state.total / this.state.limit) || 1;
-         
+
          // Update UI
          const countEl = document.getElementById('escalations-count');
          if (countEl) countEl.textContent = this.state.total;
-         
+
          if (tbody) tbody.innerHTML = this.renderRows(escalations);
-         
+
          this.updatePaginationUI();
-         
+
       } catch (error) {
          console.error('Failed to load escalations:', error);
          if (tbody) tbody.innerHTML = '<tr><td colspan="6" class="p-8 text-center text-red-500 text-sm">Failed to load escalations. Is the API running?</td></tr>';
@@ -213,7 +228,7 @@ class Escalations {
 
    static updatePaginationUI() {
       const { currentPage, totalPages } = this.state;
-      
+
       // Update text
       const info1 = document.getElementById('escalations-page-info');
       const info2 = document.getElementById('escalations-page-info2');
@@ -231,19 +246,19 @@ class Escalations {
          firstBtn.classList.toggle('text-gray-400', currentPage <= 1);
          firstBtn.classList.toggle('text-gray-600', currentPage > 1);
       }
-      
+
       if (prevBtn) {
          prevBtn.disabled = currentPage <= 1;
          prevBtn.classList.toggle('text-gray-400', currentPage <= 1);
          prevBtn.classList.toggle('text-gray-600', currentPage > 1);
       }
-      
+
       if (nextBtn) {
          nextBtn.disabled = currentPage >= totalPages;
          nextBtn.classList.toggle('text-gray-400', currentPage >= totalPages);
          nextBtn.classList.toggle('text-gray-600', currentPage < totalPages);
       }
-      
+
       if (lastBtn) {
          lastBtn.disabled = currentPage >= totalPages;
          lastBtn.classList.toggle('text-gray-400', currentPage >= totalPages);
@@ -295,5 +310,64 @@ class Escalations {
       document.getElementById('esc-last-btn')?.addEventListener('click', () => {
          if (this.state.currentPage < this.state.totalPages) this.loadEscalations(this.state.totalPages);
       });
+
+      // Table Actions Delegation
+      const tbody = document.getElementById('escalations-table-body');
+      if (tbody) {
+         tbody.addEventListener('click', async (e) => {
+            const btn = e.target.closest('button[data-action]');
+            if (!btn) return;
+
+            const action = btn.dataset.action;
+            const id = btn.dataset.id;
+
+            if (action === 'delete') {
+               if (confirm('Are you sure you want to delete this escalation?')) {
+                  await this.deleteEscalation(id);
+               }
+            } else if (action === 'toggle-status') {
+               const currentStatus = btn.dataset.status;
+               const newStatus = currentStatus === 'open' ? 'resolved' : 'open';
+               await this.toggleStatus(id, newStatus);
+            }
+         });
+      }
+   }
+
+   static async deleteEscalation(id) {
+      try {
+         const res = await fetch(`/api/escalations/${id}`, { method: 'DELETE' });
+         const data = await res.json();
+
+         if (data.success) {
+            // Reload current page
+            this.loadEscalations(this.state.currentPage);
+         } else {
+            alert('Failed to delete: ' + data.error);
+         }
+      } catch (err) {
+         console.error('Delete error:', err);
+         alert('Error deleting escalation');
+      }
+   }
+
+   static async toggleStatus(id, newStatus) {
+      try {
+         const res = await fetch(`/api/escalations/${id}/status`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: newStatus })
+         });
+         const data = await res.json();
+
+         if (data.success) {
+            this.loadEscalations(this.state.currentPage);
+         } else {
+            alert('Failed to update status: ' + data.error);
+         }
+      } catch (err) {
+         console.error('Status update error:', err);
+         alert('Error updating status');
+      }
    }
 }

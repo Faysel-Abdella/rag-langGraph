@@ -2,7 +2,7 @@ import type { Request, Response } from 'express';
 import firebaseService from '../services/firebaseService';
 
 export class EscalationController {
-  
+
   /**
    * GET /api/escalations
    * Retrieves paginated escalation tickets
@@ -11,11 +11,11 @@ export class EscalationController {
     try {
       const page = parseInt(req.query.page as string) || 1;
       const limit = parseInt(req.query.limit as string) || 8;
-      
+
       const result = await firebaseService.getEscalations(page, limit);
-      
-      res.json({ 
-        success: true, 
+
+      res.json({
+        success: true,
         escalations: result.escalations,
         total: result.total,
         page,
@@ -35,7 +35,7 @@ export class EscalationController {
   static async createEscalation(req: Request, res: Response): Promise<void> {
     try {
       const { user, question, reason } = req.body;
-      
+
       if (!user || !question) {
         res.status(400).json({ success: false, error: 'Missing required fields' });
         return;
@@ -52,6 +52,42 @@ export class EscalationController {
     } catch (error) {
       console.error('Error creating escalation:', error);
       res.status(500).json({ success: false, error: 'Failed to create escalation' });
+    }
+  }
+  /**
+   * DELETE /api/escalations/:id
+   * Delete an escalation ticket
+   */
+  static async deleteEscalation(req: Request, res: Response): Promise<void> {
+    try {
+      const { id } = req.params;
+      await firebaseService.deleteEscalation(id as string);
+      res.json({ success: true, message: 'Escalation deleted' });
+    } catch (error) {
+      console.error('Error deleting escalation:', error);
+      res.status(500).json({ success: false, error: 'Failed to delete escalation' });
+    }
+  }
+
+  /**
+   * PATCH /api/escalations/:id/status
+   * Update escalation status (open/resolved)
+   */
+  static async updateStatus(req: Request, res: Response): Promise<void> {
+    try {
+      const { id } = req.params;
+      const { status } = req.body; // Expecting { status: 'open' | 'resolved' }
+
+      if (status !== 'open' && status !== 'resolved') {
+        res.status(400).json({ success: false, error: 'Invalid status' });
+        return;
+      }
+
+      await firebaseService.updateEscalationStatus(id as string, status);
+      res.json({ success: true, message: 'Status updated' });
+    } catch (error) {
+      console.error('Error updating status:', error);
+      res.status(500).json({ success: false, error: 'Failed to update status' });
     }
   }
 }

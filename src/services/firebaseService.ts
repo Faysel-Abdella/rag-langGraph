@@ -69,13 +69,13 @@ class FirebaseService {
        * without arguments will look for '(default)' and return a NOT_FOUND error.
        */
       this.db = getFirestore(this.databaseId);
-      
+
       // Enable ignoreUndefinedProperties to handle cases where fields might be undefined
       this.db.settings({ ignoreUndefinedProperties: true });
-      
+
       // Initialize Auth
       this.auth = getAuth();
-      
+
       this.initialized = true;
 
       console.log(`✅ Firebase Service initialized for database: ${this.databaseId}`);
@@ -116,7 +116,7 @@ class FirebaseService {
 
       // 2. Check Authorization: Is this user in our 'admins' collection?
       let adminDoc = await this.db!.collection('admins').doc(uid).get();
-      
+
       if (!adminDoc.exists && email) {
         const emailQuery = await this.db!.collection('admins').where('email', '==', email).limit(1).get();
         if (!emailQuery.empty) {
@@ -130,10 +130,10 @@ class FirebaseService {
       }
 
       const data = adminDoc.data();
-      return { 
-        uid, 
-        email: email!, 
-        role: data?.role || 'admin' 
+      return {
+        uid,
+        email: email!,
+        role: data?.role || 'admin'
       };
 
     } catch (error) {
@@ -147,7 +147,7 @@ class FirebaseService {
    */
   async getCachedAnswer(question: string): Promise<string | null> {
     if (!this.db) await this.initialize();
-    
+
     try {
       const sanitizedQ = question.trim().toLowerCase();
       const snapshot = await this.db!
@@ -161,7 +161,7 @@ class FirebaseService {
         .get();
 
       if (snapshot.empty) return null;
-      
+
       return snapshot.docs[0].data().answer;
     } catch (error) {
       console.error('Cache lookup failed:', error);
@@ -178,7 +178,7 @@ class FirebaseService {
     try {
       const sanitizedQ = question.trim().toLowerCase();
       const appId = process.env.PROJECT_ID || 'default';
-      
+
       await this.db!
         .collection('artifacts')
         .doc(appId)
@@ -378,7 +378,7 @@ class FirebaseService {
     if (!this.db) await this.initialize();
 
     const timestamp = admin.firestore.FieldValue.serverTimestamp();
-    
+
     // Add message to subcollection
     await this.db!.collection('conversations')
       .doc(sessionId)
@@ -528,7 +528,7 @@ class FirebaseService {
     if (!this.db) await this.initialize();
 
     const timestamp = new Date().toISOString();
-    
+
     try {
       const docRef = await this.db!.collection('escalations').add({
         ...data,
@@ -580,6 +580,24 @@ class FirebaseService {
       if (error.code === 5) return { escalations: [], total: 0 };
       throw error;
     }
+  }
+  /**
+   * Delete an escalation
+   */
+  async deleteEscalation(id: string): Promise<void> {
+    if (!this.db) await this.initialize();
+    await this.db!.collection('escalations').doc(id).delete();
+  }
+
+  /**
+   * Update escalation status
+   */
+  async updateEscalationStatus(id: string, status: 'open' | 'resolved'): Promise<void> {
+    if (!this.db) await this.initialize();
+    await this.db!.collection('escalations').doc(id).update({
+      status,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    });
   }
 }
 

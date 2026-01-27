@@ -14,4 +14,10 @@ router.get('/escalations', EscalationController.getEscalations);
 // Create a new escalation
 router.post('/escalations', EscalationController.createEscalation);
 
+// Delete an escalation
+router.delete('/escalations/:id', EscalationController.deleteEscalation);
+
+// Update status
+router.patch('/escalations/:id/status', EscalationController.updateStatus);
+
 export default router;
