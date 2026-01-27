@@ -19,6 +19,15 @@ interface KnowledgeMetadata {
   updatedAt: string;
 }
 
+export interface Escalation {
+  id: string;
+  user: string;     // Email
+  question: string; // The question that failed
+  reason: string;   // e.g., 'Low confidence'
+  date: string;     // ISO string
+  status: 'open' | 'resolved';
+}
+
 // Define the Admin User structure
 interface AdminUser {
   uid: string;
@@ -60,13 +69,13 @@ class FirebaseService {
        * without arguments will look for '(default)' and return a NOT_FOUND error.
        */
       this.db = getFirestore(this.databaseId);
-      
+
       // Enable ignoreUndefinedProperties to handle cases where fields might be undefined
       this.db.settings({ ignoreUndefinedProperties: true });
-      
+
       // Initialize Auth
       this.auth = getAuth();
-      
+
       this.initialized = true;
 
       console.log(`✅ Firebase Service initialized for database: ${this.databaseId}`);
@@ -107,7 +116,7 @@ class FirebaseService {
 
       // 2. Check Authorization: Is this user in our 'admins' collection?
       let adminDoc = await this.db!.collection('admins').doc(uid).get();
-      
+
       if (!adminDoc.exists && email) {
         const emailQuery = await this.db!.collection('admins').where('email', '==', email).limit(1).get();
         if (!emailQuery.empty) {
@@ -121,10 +130,10 @@ class FirebaseService {
       }
 
       const data = adminDoc.data();
-      return { 
-        uid, 
-        email: email!, 
-        role: data?.role || 'admin' 
+      return {
+        uid,
+        email: email!,
+        role: data?.role || 'admin'
       };
 
     } catch (error) {
@@ -138,7 +147,7 @@ class FirebaseService {
    */
   async getCachedAnswer(question: string): Promise<string | null> {
     if (!this.db) await this.initialize();
-    
+
     try {
       const sanitizedQ = question.trim().toLowerCase();
       const snapshot = await this.db!
@@ -152,7 +161,7 @@ class FirebaseService {
         .get();
 
       if (snapshot.empty) return null;
-      
+
       return snapshot.docs[0].data().answer;
     } catch (error) {
       console.error('Cache lookup failed:', error);
@@ -169,7 +178,7 @@ class FirebaseService {
     try {
       const sanitizedQ = question.trim().toLowerCase();
       const appId = process.env.PROJECT_ID || 'default';
-      
+
       await this.db!
         .collection('artifacts')
         .doc(appId)
@@ -341,6 +350,31 @@ class FirebaseService {
     }
   }
 
+  /**
+   * Get detailed statistics for the knowledge base
+   */
+  async getDetailedStats(): Promise<any> {
+    if (!this.db) await this.initialize();
+
+    try {
+      const snapshot = await this.db!.collection('knowledge').get();
+      const files = snapshot.docs.map(doc => doc.data());
+
+      return {
+        totalFiles: files.length,
+        byType: {
+          manual: files.filter(f => f.type === 'manual').length,
+          csv: files.filter(f => f.type === 'csv').length,
+          pdf: files.filter(f => f.type === 'pdf').length,
+          docx: files.filter(f => f.type === 'docx').length,
+        }
+      };
+    } catch (error: any) {
+      console.error('Failed to get detailed stats:', error);
+      return { totalFiles: 0, byType: { manual: 0, csv: 0, pdf: 0, docx: 0 } };
+    }
+  }
+
   // ============================================
   // CONVERSATION METHODS
   // ============================================
@@ -369,7 +403,7 @@ class FirebaseService {
     if (!this.db) await this.initialize();
 
     const timestamp = admin.firestore.FieldValue.serverTimestamp();
-    
+
     // Add message to subcollection
     await this.db!.collection('conversations')
       .doc(sessionId)
@@ -506,6 +540,89 @@ class FirebaseService {
       if (error.code === 5) return 0;
       throw error;
     }
+  }
+
+  // ============================================
+  // ESCALATION METHODS
+  // ============================================
+
+  /**
+   * Create a new escalation record
+   */
+  async createEscalation(data: Omit<Escalation, 'id' | 'date'>): Promise<string> {
+    if (!this.db) await this.initialize();
+
+    const timestamp = new Date().toISOString();
+
+    try {
+      const docRef = await this.db!.collection('escalations').add({
+        ...data,
+        date: timestamp,
+        status: 'open',
+        createdAt: admin.firestore.FieldValue.serverTimestamp()
+      });
+      return docRef.id;
+    } catch (error: any) {
+      console.error('Failed to create escalation:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get escalations with pagination
+   */
+  async getEscalations(page: number = 1, limit: number = 20): Promise<{ escalations: Escalation[], total: number }> {
+    if (!this.db) await this.initialize();
+
+    try {
+      // Get total count first
+      const countSnapshot = await this.db!.collection('escalations').count().get();
+      const total = countSnapshot.data().count;
+
+      const skip = (page - 1) * limit;
+      const snapshot = await this.db!
+        .collection('escalations')
+        .orderBy('date', 'desc')
+        .limit(limit)
+        .offset(skip)
+        .get();
+
+      const escalations = snapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          user: data.user,
+          question: data.question,
+          reason: data.reason,
+          date: data.date,
+          status: data.status
+        } as Escalation;
+      });
+
+      return { escalations, total };
+    } catch (error: any) {
+      console.error('Failed to fetch escalations:', error);
+      if (error.code === 5) return { escalations: [], total: 0 };
+      throw error;
+    }
+  }
+  /**
+   * Delete an escalation
+   */
+  async deleteEscalation(id: string): Promise<void> {
+    if (!this.db) await this.initialize();
+    await this.db!.collection('escalations').doc(id).delete();
+  }
+
+  /**
+   * Update escalation status
+   */
+  async updateEscalationStatus(id: string, status: 'open' | 'resolved'): Promise<void> {
+    if (!this.db) await this.initialize();
+    await this.db!.collection('escalations').doc(id).update({
+      status,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    });
   }
 }
 

@@ -4,11 +4,13 @@
  * ✅ Vertex AI RAG stores document content for semantic search
  * ✅ Firebase Firestore stores Q&A metadata for fast retrieval
  * ✅ Cloud Run compatible
+ * ✅ Background processing for RAG operations (async queuing)
  */
 
 import { type Request, type Response } from 'express';
 import fs from 'fs';
 import path from 'path';
+import backgroundTaskService from '../services/backgroundTaskService';
 import firebaseService from '../services/firebaseService';
 import vertexAIRag from '../services/vertexAIRagService';
 
@@ -83,11 +85,7 @@ export const getAllKnowledge = async (req: Request, res: Response): Promise<void
  */
 export const getKnowledgeStats = async (req: Request, res: Response): Promise<void> => {
   try {
-    if (!vertexAIRag.isInitialized()) {
-      (res as any).status(503).json({ success: false, error: 'RAG service not initialized' });
-      return;
-    }
-    const stats = await vertexAIRag.getStats();
+    const stats = await firebaseService.getDetailedStats();
     (res as any).json({ success: true, data: stats });
   } catch (error: any) {
     (res as any).status(500).json({ success: false, error: error.message });
@@ -105,17 +103,16 @@ export const getKnowledgeById = async (req: Request, res: Response): Promise<voi
       return;
     }
 
-    const files = await vertexAIRag.listFiles();
-    const file = files.find((f) => f.id === String(id));
+    const item = await firebaseService.getKnowledgeById(id as string);
 
-    if (!file) {
-      (res as any).status(404).json({ success: false, error: 'File not found' });
+    if (!item) {
+      (res as any).status(404).json({ success: false, error: 'Knowledge item not found' });
       return;
     }
 
-    (res as any).json({ 
-      success: true, 
-      data: mapFileToUI(file) 
+    (res as any).json({
+      success: true,
+      data: item
     });
   } catch (error: any) {
     (res as any).status(500).json({ success: false, error: error.message });
@@ -124,7 +121,7 @@ export const getKnowledgeById = async (req: Request, res: Response): Promise<voi
 
 /**
  * POST /api/knowledge
- * Creates Q&A: Uploads to Vertex AI RAG + Saves metadata to Firebase
+ * Creates Q&A: Queues for async upload to Vertex AI RAG + Saves to Firebase
  */
 export const createKnowledge = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -135,63 +132,46 @@ export const createKnowledge = async (req: Request, res: Response): Promise<void
       return;
     }
 
-    // 1. Upload document to Vertex AI RAG for semantic search
-    ensureTempDir();
-    const fileId = `qa_${Date.now()}`;
-    const tempFile = path.join(RAG_TEMP_DIR, `${fileId}.txt`);
-    fs.writeFileSync(tempFile, `Q: ${question.trim()}\n\nA: ${answer.trim()}`);
-
-    const ragFile = await vertexAIRag.uploadFile(
-      tempFile,
-      question.substring(0, 100),
-      answer.substring(0, 500)
-    );
-
-    try { fs.unlinkSync(tempFile); } catch (e) {}
-
-    // Handle case where ragFile might not have a name property
-    if (!ragFile || !ragFile.name) {
-      console.error('❌ RAG file upload returned invalid structure:', ragFile);
-      return (res as any).status(500).json({
-        success: false,
-        error: 'Failed to upload file to RAG - invalid response from Vertex AI',
-      });
-    }
-
-    // 2. Save metadata to Firebase Firestore
+    // 1. Save metadata to Firebase with PROCESSING status
     const knowledgeData = await firebaseService.saveKnowledge({
-      ragFileId: ragFile.name, // Store full RAG file resource name
+      ragFileId: '', // Will be populated by background task
       question: question.trim(),
       answer: answer.trim(),
       type: 'manual',
-      status: 'COMPLETED',
+      status: 'PROCESSING', // Mark as processing initially
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     });
 
+    // 2. Queue RAG upload in background
+    ensureTempDir();
+    const tempFile = path.join(RAG_TEMP_DIR, `upload_${Date.now()}_${knowledgeData.id}.txt`);
+    fs.writeFileSync(tempFile, `Q: ${question.trim()}\n\nA: ${answer.trim()}`);
+
+    backgroundTaskService.queueTask('UPLOAD_RAG', knowledgeData.id, {
+      tempFilePath: tempFile,
+      displayName: question.substring(0, 100),
+      description: answer.substring(0, 500),
+    });
+
+    // Return immediately without waiting for RAG upload
     (res as any).status(201).json({
       success: true,
-      message: 'Knowledge item created',
-      data: knowledgeData,
+      message: 'Knowledge item queued for processing',
+      data: {
+        ...knowledgeData,
+        status: 'PROCESSING',
+      },
     });
   } catch (error: any) {
     console.error('❌ Create knowledge error:', error.message);
-    // Even if Firestore fails, RAG upload succeeded - still return 201
-    if (error.code === 5 || error.message?.includes('NOT_FOUND')) {
-      console.log('⚠️  Firestore unavailable - but document was uploaded to Vertex AI RAG');
-      (res as any).status(201).json({
-        success: true,
-        message: 'Knowledge item created in RAG (Firestore metadata unavailable)',
-        warning: 'Firestore API may not be enabled - enable with: gcloud services enable firestore.googleapis.com',
-      });
-    } else {
-      (res as any).status(500).json({ success: false, error: error.message });
-    }
+    (res as any).status(500).json({ success: false, error: error.message });
   }
 };
 
 /**
  * PUT /api/knowledge/:id
+ * Updates Q&A: Queues for async delete (old RAG file) + upload (new RAG file)
  */
 export const updateKnowledge = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -203,50 +183,50 @@ export const updateKnowledge = async (req: Request, res: Response): Promise<void
       return;
     }
 
-    // Get the knowledge metadata to find the RAG file ID
+    // Get the knowledge metadata to find the old RAG file ID
     let knowledge = null;
     try {
       knowledge = await firebaseService.getKnowledgeById(id);
+      console.log(`📚 Found knowledge item: ${id}, ragFileId: ${knowledge?.ragFileId}`);
     } catch (e) {
       console.warn('⚠️  Could not fetch from Firebase, proceeding with update');
     }
 
-    // Delete old file from RAG if we have the ragFileId
-    if (knowledge?.ragFileId) {
-      try {
-        await vertexAIRag.deleteFile(knowledge.ragFileId);
-      } catch (error: any) {
-        console.warn('⚠️  Could not delete old file from Vertex AI RAG:', error.message);
-      }
+    if (!knowledge) {
+      (res as any).status(404).json({ success: false, error: 'Knowledge item not found' });
+      return;
     }
 
-    // Upload new file to RAG
+    // Update Firebase immediately with new content and PROCESSING status
+    await firebaseService.updateKnowledge(id, {
+      question: question.trim(),
+      answer: answer.trim(),
+      status: 'PROCESSING', // Mark as processing
+      updatedAt: new Date().toISOString(),
+    });
+
+    // Queue RAG update (delete old + upload new) in background
     ensureTempDir();
-    const tempFile = path.join(RAG_TEMP_DIR, `upd_${Date.now()}.txt`);
+    const tempFile = path.join(RAG_TEMP_DIR, `update_${Date.now()}_${id}.txt`);
     fs.writeFileSync(tempFile, `Q: ${question.trim()}\n\nA: ${answer.trim()}`);
 
-    const ragFile = await vertexAIRag.uploadFile(tempFile, question, answer);
-    try { fs.unlinkSync(tempFile); } catch (e) {}
+    backgroundTaskService.queueTask('UPDATE_RAG', id, {
+      oldRagFileId: knowledge.ragFileId,
+      tempFilePath: tempFile,
+      displayName: question.substring(0, 100),
+      description: answer.substring(0, 500),
+    });
 
-    // Update Firebase metadata
-    try {
-      await firebaseService.updateKnowledge(id, {
-        ragFileId: ragFile.name,
-        question: question.trim(),
-        answer: answer.trim(),
-        updatedAt: new Date().toISOString(),
-        status: 'COMPLETED',
-        type: 'manual',
-        createdAt: knowledge?.createdAt || new Date().toISOString(),
-      });
-    } catch (e) {
-      console.warn('⚠️  Could not update Firestore metadata');
-    }
-
+    // Return immediately without waiting for RAG operations
     (res as any).json({
       success: true,
-      message: 'Knowledge item updated',
-      data: mapFileToUI(ragFile),
+      message: 'Knowledge item queued for update',
+      data: {
+        id,
+        question: question.trim(),
+        answer: answer.trim(),
+        status: 'PROCESSING',
+      },
     });
   } catch (error: any) {
     console.error('❌ Update knowledge error:', error.message);
@@ -256,35 +236,58 @@ export const updateKnowledge = async (req: Request, res: Response): Promise<void
 
 /**
  * DELETE /api/knowledge/:id
- * Deletes from both Firebase Firestore and Vertex AI RAG
+ * Queues deletion from both RAG and Firebase asynchronously
  */
 export const deleteKnowledge = async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params as { id: string };
-    
+
+    if (!id) {
+      (res as any).status(400).json({ success: false, error: 'Knowledge ID required' });
+      return;
+    }
+
     // Get knowledge metadata from Firebase
-    const knowledge = await firebaseService.getKnowledgeById(id);
-    
+    let knowledge = null;
+    try {
+      knowledge = await firebaseService.getKnowledgeById(id);
+      console.log(`📚 Found knowledge item: ${id}, ragFileId: ${knowledge?.ragFileId}`);
+    } catch (e) {
+      console.warn('⚠️  Could not fetch knowledge from Firebase');
+    }
+
     if (!knowledge) {
       (res as any).status(404).json({ success: false, error: 'Knowledge item not found' });
       return;
     }
-    
-    // 1. Delete from Vertex AI RAG
-    if (knowledge.ragFileId) {
-      try {
-        await vertexAIRag.deleteFile(knowledge.ragFileId);
-      } catch (error) {
-        console.warn('⚠️  Could not delete from Vertex AI RAG:', error);
-      }
+
+    // Delete from Firebase immediately
+    try {
+      console.log(`🗑️  Deleting from Firebase: ${id}`);
+      await firebaseService.deleteKnowledge(id);
+      console.log(`✅ Deleted from Firebase`);
+    } catch (error: any) {
+      console.error('❌ Could not delete from Firebase:', error.message);
+      (res as any).status(500).json({ success: false, error: error.message });
+      return;
     }
-    
-    // 2. Delete from Firebase Firestore
-    await firebaseService.deleteKnowledge(id);
-    
-    (res as any).json({ success: true, message: 'Knowledge item deleted' });
+
+    // Queue RAG deletion in background if we have a RAG file ID
+    if (knowledge.ragFileId) {
+      backgroundTaskService.queueTask('DELETE_RAG', id, {
+        ragFileId: knowledge.ragFileId,
+      });
+      console.log(`📋 Queued RAG deletion for: ${knowledge.ragFileId}`);
+    }
+
+    // Return immediately
+    (res as any).json({
+      success: true,
+      message: 'Knowledge item deleted',
+      id,
+    });
   } catch (error: any) {
-    console.error('❌ Delete knowledge error:', error);
+    console.error('❌ Delete knowledge error:', error.message);
     (res as any).status(500).json({ success: false, error: error.message });
   }
 };
@@ -309,12 +312,12 @@ export const uploadCSV = async (req: Request, res: Response): Promise<void> => {
     // Upload each Q&A pair as a separate file
     for (let i = 0; i < items.length; i++) {
       const item = items[i];
-      
+
       try {
         const fileId = `csv_qa_${Date.now()}_${i}`;
         const tempFile = path.join(RAG_TEMP_DIR, `${fileId}.txt`);
         const content = `Q: ${item.question.trim()}\n\nA: ${item.answer.trim()}`;
-        
+
         fs.writeFileSync(tempFile, content);
 
         // 1. Upload to Vertex AI RAG
@@ -336,8 +339,8 @@ export const uploadCSV = async (req: Request, res: Response): Promise<void> => {
         });
 
         uploadedFiles.push(ragFile);
-        
-        try { fs.unlinkSync(tempFile); } catch (e) {}
+
+        try { fs.unlinkSync(tempFile); } catch (e) { }
       } catch (error: any) {
         console.error(`❌ CSV row ${i + 1} error:`, error);
         errors.push(`Row ${i + 1}: ${error.message}`);

@@ -3,6 +3,9 @@ import fs from 'fs';
 import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 
+// Export the fallback message so ChatController can match against it
+export const FALLBACK_MESSAGE = `That's a great question! I don't have that specific information in our knowledge base at the moment. Could you share your email address? Our team will be happy to get back to you with a detailed answer shortly.`;
+
 interface RagFile {
   id: string;
   name: string;
@@ -28,19 +31,22 @@ interface CacheEntry {
   timestamp: number;
 }
 
+/**
+ * Service responsible for interacting with Google Cloud Vertex AI to perform RAG (Retrieval-Augmented Generation).
+ * It handles:
+ * 1. Managing the RAG Corpus (uploading, listing, deleting files).
+ * 2. Querying the Gemini model with retrieval context (RAG).
+ * 3. Local caching to optimize performance and reduce API costs.
+ */
 class VertexAIRagService {
   private config: RagCorpusConfig;
   private client: AxiosInstance | null = null;
   private initialized = false;
   private environment: 'local' | 'cloud-run' = 'local';
 
-  // Keeps metadata mapping only (NOT caching answers)
-  private qaCache: Map<string, { question: string; answer: string }> = new Map();
-  
-  // Local answer cache for fast repeated queries
-  private localAnswerCache: Map<string, CacheEntry> = new Map();
-  private readonly CACHE_TTL = 5 * 60 * 1000; // 5 minutes
-  private readonly MAX_CACHE_SIZE = 100;
+
+
+
 
   constructor() {
     const loc = process.env.LOCATION || 'us-west1';
@@ -70,6 +76,10 @@ class VertexAIRagService {
     return token.token;
   }
 
+  /**
+   * Sets up the Google Auth client and resolves the Corpus ID.
+   * This MUST be called before any other operation.
+   */
   async initialize(): Promise<void> {
     if (!this.config.projectId || (!this.config.corpusName && !process.env.RESOURCE_NAME)) {
       throw new Error('Missing PROJECT_ID or CORPUS_NAME');
@@ -89,6 +99,10 @@ class VertexAIRagService {
     console.log('✅ Vertex AI RAG Service initialized');
   }
 
+  /**
+   * Finds the specific Corpus ID (e.g., '12345') associated with the friendly display name (e.g., 'My Corpus').
+   * Vertex AI requires the numeric ID for API calls, not the display name.
+   */
   private async resolveCorpus(): Promise<void> {
     if (process.env.RESOURCE_NAME) {
       const parts = process.env.RESOURCE_NAME.split('/');
@@ -109,40 +123,13 @@ class VertexAIRagService {
     this.config.corpusId = corpus.name.split('/').pop();
   }
 
-  private checkLocalCache(query: string): string | null {
-    const sanitizedQuery = query.trim().toLowerCase();
-    const entry = this.localAnswerCache.get(sanitizedQuery);
-    
-    if (entry && (Date.now() - entry.timestamp) < this.CACHE_TTL) {
-      console.log(`Local cache hit for query: ${query.substring(0, 50)}...`);
-      return entry.answer;
-    }
-    
-    // Remove expired entry
-    if (entry) {
-      this.localAnswerCache.delete(sanitizedQuery);
-    }
-    
-    return null;
-  }
 
-  private updateLocalCache(query: string, answer: string): void {
-    const sanitizedQuery = query.trim().toLowerCase();
-    this.localAnswerCache.set(sanitizedQuery, {
-      question: query,
-      answer,
-      timestamp: Date.now()
-    });
-    
-    // Limit cache size
-    if (this.localAnswerCache.size > this.MAX_CACHE_SIZE) {
-      const firstKey = this.localAnswerCache.keys().next().value;
-      if (firstKey) {
-        this.localAnswerCache.delete(firstKey);
-      }
-    }
-  }
 
+  /**
+   * Uploads a file (text, PDF, etc.) to Vertex AI.
+   * This makes the content searchable by the RAG system.
+   * Returns metadata including the new Resource Name.
+   */
   async uploadFile(filePath: string, displayName?: string, description?: string): Promise<RagFile> {
     if (!this.initialized || !this.client) throw new Error('Not initialized');
 
@@ -163,11 +150,23 @@ class VertexAIRagService {
     });
 
     console.log('[RAG Upload] Response:', JSON.stringify(res.data).substring(0, 200));
-    
-    const fileId = res.data.name?.split('/').pop() || res.data.id || uuidv4();
-    const resourceName = res.data.name || `projects/${this.config.projectId}/locations/${this.config.location}/ragCorpora/${this.config.corpusId}/ragFiles/${fileId}`;
-    
-    this.qaCache.set(fileId, { question: displayName || 'Untitled', answer: description || '' });
+
+    // IMPORTANT: Resource name is nested inside ragFile object
+    const fullResourceName = res.data.ragFile?.name;
+    if (!fullResourceName) {
+      console.error('❌ ERROR: RAG API did not return a resource name. Response:', JSON.stringify(res.data, null, 2));
+      throw new Error('RAG API response missing required "ragFile.name" field');
+    }
+
+    console.log(`✅ RAG File Full Resource Name: ${fullResourceName}`);
+
+    // Extract just the numeric ID from the resource name for cache and reference
+    const fileId = fullResourceName.split('/').pop() || uuidv4();
+    console.log(`ℹ️  RAG File Numeric ID: ${fileId}`);
+
+    const resourceName = fullResourceName; // Use the full name returned by Vertex AI
+
+
 
     return {
       id: fileId,
@@ -182,26 +181,45 @@ class VertexAIRagService {
   }
 
   /**
-   * PURE RAG CALL (Stateless) with local caching
+   * The core RAG function.
+   * 1. Checks local cache for exact matches.
+   * 2. Constructs a system prompt with instructions for tone and fallback.
+   * 3. Calls Gemini API with the 'retrieval' tool enabled (pointing to our corpus).
+   * 4. Returns the generated answer or the fallback message.
    */
   async retrieveContextsWithRAG(query: string, topK = 3): Promise<string> {
     if (!this.initialized || !this.client) {
-      return 'I cannot answer right now. Please try again later.';
+      return 'I apologize, but I\'m currently unavailable. Please try again in a moment.';
     }
 
-    // Check local cache first
-    const cachedAnswer = this.checkLocalCache(query);
-    if (cachedAnswer) {
-      return cachedAnswer;
-    }
+
 
     const corpusResource = `projects/${this.config.projectId}/locations/${this.config.location}/ragCorpora/${this.config.corpusId}`;
     const geminiUrl = `https://${this.config.location}-aiplatform.googleapis.com/v1beta1/projects/${this.config.projectId}/locations/${this.config.location}/publishers/google/models/gemini-2.5-flash:generateContent`;
 
     try {
       console.log(`Making RAG API call for: ${query.substring(0, 50)}...`);
-      
+
+      // Enhanced system prompt for better greeting handling and email collection
+      const systemPrompt = `You are a helpful and professional customer service AI assistant.
+
+**Greeting Handling**: Respond warmly to greetings. For "Hi", "Hello", etc., say "Hi there! 👋 How can I help you today?"
+
+**Knowledge Base Answers**: Provide clear, accurate answers based on knowledge base information. Be professional and courteous.
+
+**Email Collection**: If you cannot find the answer in the knowledge base, acknowledge the question professionally and politely ask for their email.
+Use this EXACT phrase if you don't know the answer: "${FALLBACK_MESSAGE}"
+
+**Tone**: Professional yet friendly, clear and concise, empathetic. Keep responses to 1-4 sentences.
+
+**Follow-up Questions**: After providing the answer, suggest 2-3 short, relevant follow-up questions the user might ask next. Format them exactly like this at the end of your response:
+<<<FOLLOWUP: Question 1 | Question 2 | Question 3>>>`;
+
       const res = await this.client.post(geminiUrl, {
+        systemInstruction: {
+          role: 'user',
+          parts: [{ text: systemPrompt }]
+        },
         contents: [{ role: 'user', parts: [{ text: query }] }],
         tools: [{
           retrieval: {
@@ -221,72 +239,78 @@ class VertexAIRagService {
 
       let answer = res.data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
 
-      if (!answer || answer.length < 20) {
-        answer = `I don't have information about that in our knowledge base right now.
-Please share your email and our team will get back to you.`;
+      // Fallback response if no answer is generated
+      if (!answer || answer.length < 15) {
+        answer = FALLBACK_MESSAGE;
       }
 
-      // Update local cache
-      this.updateLocalCache(query, answer);
+
 
       return answer;
     } catch (err: any) {
       console.error('[RAG] Error:', err.message);
-      return 'An error occurred while searching the knowledge base. Please share your email.';
+      return FALLBACK_MESSAGE;
     }
   }
 
   // ---------- LEGACY + ADMIN METHODS ----------
 
-  async retrieveContexts(query: string, topK = 5): Promise<any[]> {
-    const answer = await this.retrieveContextsWithRAG(query, topK);
-    return [{ text: answer }];
-  }
-
-  async listFiles(pageSize = 100): Promise<RagFile[]> {
-    if (!this.initialized || !this.client) return [];
-
-    const url = `${this.config.endpoint}/projects/${this.config.projectId}/locations/${this.config.location}/ragCorpora/${this.config.corpusId}/ragFiles`;
-    const res = await this.client.get(url, { params: { pageSize } });
-
-    return (res.data.ragFiles || []).map((file: any) => {
-      const id = file.name?.split('/').pop() || '';
-      const cached = this.qaCache.get(id);
-      return {
-        id,
-        name: file.name,
-        displayName: cached?.question || file.displayName || 'Untitled',
-        description: cached?.answer || file.description || '',
-        type: this.getFileType(file.name),
-        createdAt: file.createTime,
-        updatedAt: file.updateTime,
-        status: file.fileStatus?.state === 'ACTIVE' ? 'COMPLETED' : 'PROCESSING',
-      };
-    });
-  }
-
-  async getStats() {
-    const files = await this.listFiles();
-    return {
-      totalFiles: files.length,
-      byType: {
-        manual: files.filter(f => f.type === 'manual').length,
-        csv: files.filter(f => f.type === 'csv').length,
-        pdf: files.filter(f => f.type === 'pdf').length,
-        docx: files.filter(f => f.type === 'docx').length,
-      },
-      cacheStats: {
-        localCacheSize: this.localAnswerCache.size,
-        metadataCacheSize: this.qaCache.size
-      }
-    };
-  }
-
-  async deleteFile(fileId: string): Promise<boolean> {
+  /**
+   * Removes a file from the Vertex AI RAG corpus.
+   * Handles both full resource names (projects/.../ragFiles/123) and simple IDs.
+   */
+  async deleteFile(fileIdOrResourceName: string): Promise<boolean> {
     if (!this.client) return false;
-    const url = `${this.config.endpoint}/projects/${this.config.projectId}/locations/${this.config.location}/ragCorpora/${this.config.corpusId}/ragFiles/${fileId}`;
-    await this.client.delete(url);
-    return true;
+
+    if (!fileIdOrResourceName) {
+      throw new Error('File ID or resource name is required for deletion');
+    }
+
+    let resourceName: string;
+
+    // If it's already a full resource name (contains /ragFiles/), use it as-is
+    if (fileIdOrResourceName.includes('/ragFiles/')) {
+      resourceName = fileIdOrResourceName;
+      console.log(`📋 Using full resource name for deletion: ${resourceName}`);
+    } else {
+      // Just a numeric ID, construct the full resource name
+      resourceName = `projects/${this.config.projectId}/locations/${this.config.location}/ragCorpora/${this.config.corpusId}/ragFiles/${fileIdOrResourceName}`;
+      console.log(`📋 Constructed resource name from ID '${fileIdOrResourceName}': ${resourceName}`);
+    }
+
+    // Validate that resource name has the numeric ID at the end (not a UUID)
+    const lastSegment = resourceName.split('/').pop();
+    if (lastSegment?.includes('-')) {
+      console.warn(`⚠️  WARNING: File ID appears to be a UUID '${lastSegment}', but Vertex AI expects numeric IDs`);
+    }
+
+    // Use the same URL pattern as upload: hardcode the endpoint URL
+    const deleteUrl = `https://${this.config.location}-aiplatform.googleapis.com/v1beta1/${resourceName}`;
+
+    console.log(`🗑️  RAG Delete URL: ${deleteUrl}`);
+
+    try {
+      // Use axios directly like uploadFile does, passing auth headers explicitly
+      const response = await axios.delete(deleteUrl, {
+        headers: {
+          Authorization: this.client.defaults.headers['Authorization'],
+          'Content-Type': 'application/json',
+        },
+      });
+
+      console.log(`✅ RAG Delete Response: Status ${response.status} ${response.statusText}`);
+      return true;
+    } catch (error: any) {
+      console.error(`❌ RAG Delete Error:`, {
+        url: deleteUrl,
+        resourceName,
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        message: error.message,
+        data: error.response?.data
+      });
+      throw error;
+    }
   }
 
   private getFileType(filename: any): 'manual' | 'csv' | 'pdf' | 'docx' {
@@ -305,11 +329,8 @@ Please share your email and our team will get back to you.`;
   getConfig() {
     return { ...this.config };
   }
-  
-  // Clear local cache (useful for testing)
-  clearLocalCache(): void {
-    this.localAnswerCache.clear();
-  }
+
+  // No longer using local cache
 }
 
 export const vertexAIRag = new VertexAIRagService();
