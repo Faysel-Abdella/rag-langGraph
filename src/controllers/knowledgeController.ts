@@ -192,6 +192,7 @@ export const createKnowledge = async (req: Request, res: Response): Promise<void
 
 /**
  * PUT /api/knowledge/:id
+ * Updates Q&A: Deletes old from RAG + uploads new to RAG + updates Firebase
  */
 export const updateKnowledge = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -207,28 +208,34 @@ export const updateKnowledge = async (req: Request, res: Response): Promise<void
     let knowledge = null;
     try {
       knowledge = await firebaseService.getKnowledgeById(id);
+      console.log(`📚 Found knowledge item: ${id}, ragFileId: ${knowledge?.ragFileId}`);
     } catch (e) {
       console.warn('⚠️  Could not fetch from Firebase, proceeding with update');
     }
 
-    // Delete old file from RAG if we have the ragFileId
+    // 1. Delete old file from Vertex AI RAG if we have the ragFileId
     if (knowledge?.ragFileId) {
       try {
+        console.log(`🗑️  Deleting old RAG file: ${knowledge.ragFileId}`);
         await vertexAIRag.deleteFile(knowledge.ragFileId);
+        console.log(`✅ Old RAG file deleted successfully`);
       } catch (error: any) {
         console.warn('⚠️  Could not delete old file from Vertex AI RAG:', error.message);
       }
     }
 
-    // Upload new file to RAG
+    // 2. Upload new file to Vertex AI RAG
+    console.log(`📤 Uploading new Q&A to Vertex AI RAG...`);
     ensureTempDir();
     const tempFile = path.join(RAG_TEMP_DIR, `upd_${Date.now()}.txt`);
     fs.writeFileSync(tempFile, `Q: ${question.trim()}\n\nA: ${answer.trim()}`);
 
-    const ragFile = await vertexAIRag.uploadFile(tempFile, question, answer);
+    const ragFile = await vertexAIRag.uploadFile(tempFile, question.substring(0, 100), answer.substring(0, 500));
+    console.log(`✅ New RAG file uploaded: ${ragFile.name}`);
     try { fs.unlinkSync(tempFile); } catch (e) {}
 
-    // Update Firebase metadata
+    // 3. Update Firebase metadata with new RAG file reference
+    console.log(`💾 Updating Firebase metadata...`);
     try {
       await firebaseService.updateKnowledge(id, {
         ragFileId: ragFile.name,
@@ -239,13 +246,14 @@ export const updateKnowledge = async (req: Request, res: Response): Promise<void
         type: 'manual',
         createdAt: knowledge?.createdAt || new Date().toISOString(),
       });
+      console.log(`✅ Firebase metadata updated successfully`);
     } catch (e) {
-      console.warn('⚠️  Could not update Firestore metadata');
+      console.warn('⚠️  Could not update Firestore metadata:', e);
     }
 
     (res as any).json({
       success: true,
-      message: 'Knowledge item updated',
+      message: 'Knowledge item updated in both RAG and Firebase',
       data: mapFileToUI(ragFile),
     });
   } catch (error: any) {
@@ -256,14 +264,25 @@ export const updateKnowledge = async (req: Request, res: Response): Promise<void
 
 /**
  * DELETE /api/knowledge/:id
- * Deletes from both Firebase Firestore and Vertex AI RAG
+ * Deletes from both RAG and Firebase (symmetric with create/update)
  */
 export const deleteKnowledge = async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params as { id: string };
     
+    if (!id) {
+      (res as any).status(400).json({ success: false, error: 'Knowledge ID required' });
+      return;
+    }
+
     // Get knowledge metadata from Firebase
-    const knowledge = await firebaseService.getKnowledgeById(id);
+    let knowledge = null;
+    try {
+      knowledge = await firebaseService.getKnowledgeById(id);
+      console.log(`📚 Found knowledge item: ${id}, ragFileId: ${knowledge?.ragFileId}`);
+    } catch (e) {
+      console.warn('⚠️  Could not fetch knowledge from Firebase, attempting RAG deletion anyway');
+    }
     
     if (!knowledge) {
       (res as any).status(404).json({ success: false, error: 'Knowledge item not found' });
@@ -273,18 +292,37 @@ export const deleteKnowledge = async (req: Request, res: Response): Promise<void
     // 1. Delete from Vertex AI RAG
     if (knowledge.ragFileId) {
       try {
+        console.log(`🗑️  Deleting from Vertex AI RAG: ${knowledge.ragFileId}`);
         await vertexAIRag.deleteFile(knowledge.ragFileId);
-      } catch (error) {
-        console.warn('⚠️  Could not delete from Vertex AI RAG:', error);
+        console.log(`✅ Successfully deleted from Vertex AI RAG`);
+      } catch (error: any) {
+        console.warn('⚠️  Could not delete from Vertex AI RAG:', error.message);
+        if (error.response?.data) {
+          console.warn('   Error details:', JSON.stringify(error.response.data, null, 2));
+        }
       }
+    } else {
+      console.log('⚠️  No RAG file ID found, skipping RAG deletion');
     }
     
     // 2. Delete from Firebase Firestore
-    await firebaseService.deleteKnowledge(id);
-    
-    (res as any).json({ success: true, message: 'Knowledge item deleted' });
+    try {
+      console.log(`🗑️  Deleting from Firebase: ${id}`);
+      await firebaseService.deleteKnowledge(id);
+      console.log(`✅ Successfully deleted from Firebase`);
+    } catch (error: any) {
+      console.error('❌ Could not delete from Firebase:', error.message);
+      throw error;
+    }
+
+    console.log(`✅ Knowledge item successfully deleted from both RAG and Firebase`);
+    (res as any).json({ 
+      success: true, 
+      message: 'Knowledge item deleted from both RAG and Firebase',
+      id 
+    });
   } catch (error: any) {
-    console.error('❌ Delete knowledge error:', error);
+    console.error('❌ Delete knowledge error:', error.message);
     (res as any).status(500).json({ success: false, error: error.message });
   }
 };

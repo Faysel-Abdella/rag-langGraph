@@ -6,14 +6,13 @@ class KnowledgeBase {
 
    static render() {
       return `
-      <div class="px-8 py-6">
-        <!-- Header -->
-        <div class="flex justify-between items-center mb-6">
+      <div class="px-4 md:px-8 py-6">
+        <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
            <div class="flex items-center gap-3">
              <h1 class="text-[24px] font-bold text-[#1E293B]">Knowledge Base</h1>
              <span class="bg-gray-100 text-gray-600 px-2.5 py-0.5 rounded-md text-[13px] font-medium" id="kb-count">0</span>
            </div>
-           <button id="add-knowledge-btn" class="flex items-center gap-2 bg-[#E5A000] hover:bg-[#D49000] text-white px-5 py-2.5 rounded-lg font-semibold transition-all text-[14px]">
+           <button id="add-knowledge-btn" class="w-full md:w-auto flex items-center justify-center gap-2 bg-[#E5A000] hover:bg-[#D49000] text-white px-5 py-2.5 rounded-lg font-semibold transition-all text-[14px]">
              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                <path d="M12 5v14M5 12h14"/>
              </svg>
@@ -21,9 +20,7 @@ class KnowledgeBase {
            </button>
         </div>
 
-        <!-- Controls -->
-        <div class="flex justify-between items-center gap-4 mb-6">
-           <!-- Search Input -->
+        <div class="flex flex-col md:flex-row justify-between items-stretch md:items-center gap-4 mb-6">
            <div class="relative flex-1">
               <svg class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <circle cx="11" cy="11" r="8"></circle>
@@ -32,8 +29,7 @@ class KnowledgeBase {
               <input type="text" placeholder="Search by Question, or Key words" class="w-full pl-11 pr-4 py-2.5 rounded-lg border border-gray-300 focus:outline-none focus:border-[#E5A000] focus:ring-1 focus:ring-[#E5A000] transition-all bg-white text-[14px] placeholder-gray-400" id="kb-search">
            </div>
            
-           <!-- Sort Button -->
-           <button class="flex items-center gap-2 px-4 py-2.5 border border-gray-300 rounded-lg bg-white text-gray-700 hover:bg-gray-50 text-[14px] font-medium transition-colors whitespace-nowrap">
+           <button class="flex items-center justify-center gap-2 px-4 py-2.5 border border-gray-300 rounded-lg bg-white text-gray-700 hover:bg-gray-50 text-[14px] font-medium transition-colors whitespace-nowrap">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                  <line x1="21" y1="10" x2="3" y2="10"></line>
                  <line x1="21" y1="6" x2="3" y2="6"></line>
@@ -44,9 +40,8 @@ class KnowledgeBase {
            </button>
         </div>
 
-        <!-- Table -->
-        <div class="bg-white border border-gray-200 rounded-2xl overflow-hidden mb-6 shadow-sm">
-           <table class="w-full">
+        <div class="bg-white border border-gray-200 rounded-2xl overflow-x-auto mb-6 shadow-sm pb-32 min-h-[400px]">
+           <table class="w-full min-w-[800px]">
               <thead class="bg-gray-50/50 border-b border-gray-100">
                  <tr>
                     <th class="w-16 p-5 text-center">
@@ -60,13 +55,14 @@ class KnowledgeBase {
                  </tr>
               </thead>
               <tbody class="divide-y divide-gray-100" id="kb-table-body">
-                 <tr><td colspan="6" class="p-4 text-center text-gray-400 text-sm">Loading...</td></tr>
+                 <tr>
+                    <td colspan="6" class="p-4 text-center text-gray-400 text-sm">Loading...</td>
+                 </tr>
               </tbody>
            </table>
         </div>
 
-        <!-- Pagination -->
-        <div class="flex justify-between items-center text-[13px] font-medium text-gray-600 px-2 mt-4">
+        <div class="flex flex-col md:flex-row justify-between items-center gap-4 text-[13px] font-medium text-gray-600 px-2 mt-4">
            <div class="flex items-center gap-3">
               <span id="kb-page-info">Page 1 of 1</span>
               <div class="relative">
@@ -82,7 +78,7 @@ class KnowledgeBase {
            </div>
            
            <div class="flex items-center gap-4">
-              <span id="kb-page-info2">Page 1 of 1</span>
+              <span id="kb-page-info2" class="hidden md:inline">Page 1 of 1</span>
               <div class="flex items-center gap-1">
                  <button class="w-8 h-8 flex items-center justify-center border border-gray-200 rounded-md hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors" id="kb-first-page" disabled>
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-gray-400"><polyline points="11 17 6 12 11 7"></polyline><polyline points="18 17 13 12 18 7"></polyline></svg>
@@ -117,19 +113,19 @@ class KnowledgeBase {
         </td>
         <td class="py-5 px-2">
            <div class="flex items-center gap-3">
-             <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-[#E5A000] to-[#D49000] flex items-center justify-center text-white text-[14px] font-bold">
+             <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-[#E5A000] to-[#D49000] flex items-center justify-center text-white text-[14px] font-bold shrink-0">
                 Q
              </div>
-             <span class="text-[15px] font-semibold text-gray-700 max-w-xs truncate">${this.escapeHtml(row.question)}</span>
+             <span class="text-[15px] font-semibold text-gray-700 max-w-[200px] truncate">${this.escapeHtml(row.question)}</span>
            </div>
         </td>
-        <td class="py-5 px-4 text-[14px] text-gray-600 font-medium max-w-md truncate">${this.escapeHtml(row.answer)}</td>
+        <td class="py-5 px-4 text-[14px] text-gray-600 font-medium max-w-[300px] truncate">${this.escapeHtml(row.answer)}</td>
         <td class="py-5 px-4">
            <span class="inline-flex items-center px-2.5 py-1 rounded-full text-[12px] font-semibold ${this.getTypeBadgeClass(row.type)}">
               ${this.formatType(row.type)}
            </span>
         </td>
-        <td class="py-5 px-4 text-[14px] text-gray-500">${this.formatDate(row.updatedAt)}</td>
+        <td class="py-5 px-4 text-[14px] text-gray-500 whitespace-nowrap">${this.formatDate(row.updatedAt)}</td>
         <td class="p-5 text-center">
            <div class="relative inline-block">
               <button class="text-gray-400 hover:text-gray-600 p-2 rounded-full hover:bg-gray-100 transition-all kb-row-menu" data-id="${this.escapeHtml(row.id)}">
@@ -142,9 +138,8 @@ class KnowledgeBase {
            </div>
         </td>
       </tr>
-    `).join('');
+`).join('');
    }
-
    static getTypeBadgeClass(type) {
       const classes = {
          'manual': 'bg-blue-100 text-blue-700',
@@ -158,7 +153,7 @@ class KnowledgeBase {
       const types = {
          'manual': 'Manual',
          'csv': 'CSV',
-         'pdf': 'PDF',
+         'pdf': 'PDF'
       };
       return types[type] || type;
    }
@@ -173,20 +168,20 @@ class KnowledgeBase {
       if (!dateStr) return '-';
       try {
          const date = new Date(dateStr);
-         return date.toLocaleDateString('en-US', { 
-            year: 'numeric', 
-            month: 'short', 
-            day: 'numeric', 
-            hour: '2-digit', 
-            minute: '2-digit' 
+         return date.toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
          });
-      } catch {
+      } catch (error) {
          return dateStr;
       }
    }
 
    static renderModalPlaceholder() {
-      return `<!-- Modal Portal Placeholder -->`;
+      return ``;
    }
 
    static async loadDocuments() {
@@ -195,17 +190,17 @@ class KnowledgeBase {
          const response = await fetch('/api/knowledge');
          
          if (!response.ok) {
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            throw new Error(`HTTP error! status: ${response.status} ${response.statusText}`);
          }
          
          const result = await response.json();
-         console.log('Loaded knowledge items:', result);
+         console.log('Knowledge response:', result);
          
          if (result.success) {
             this.allDocuments = result.data || [];
             this.currentData = this.allDocuments;
             
-            // Reset search input if it exists
+            // Clear search when reloading
             const searchInput = document.getElementById('kb-search');
             if (searchInput) searchInput.value = '';
             
@@ -215,8 +210,10 @@ class KnowledgeBase {
          }
       } catch (error) {
          console.error('Failed to load documents:', error);
-         document.getElementById('kb-table-body').innerHTML = 
-            '<tr><td colspan="6" class="p-4 text-center text-red-500 text-sm">Failed to load knowledge items</td></tr>';
+         const tableBody = document.getElementById('kb-table-body');
+         if (tableBody) {
+            tableBody.innerHTML = '<tr><td colspan="6" class="p-4 text-center text-red-500 text-sm">Failed to load knowledge items. Please try again later.</td></tr>';
+         }
       }
    }
 
@@ -226,13 +223,24 @@ class KnowledgeBase {
       const pageData = this.currentData.slice(start, end);
       const totalPages = Math.ceil(this.currentData.length / this.itemsPerPage) || 1;
 
-      // Update UI
-      document.getElementById('kb-count').textContent = this.currentData.length;
-      document.getElementById('kb-table-body').innerHTML = this.renderRows(pageData);
-      document.getElementById('kb-page-info').textContent = `Page ${this.currentPage} of ${totalPages}`;
-      document.getElementById('kb-page-info2').textContent = `Page ${this.currentPage} of ${totalPages}`;
+      // Update count
+      const countEl = document.getElementById('kb-count');
+      if (countEl) countEl.textContent = this.currentData.length;
 
-      // Update pagination buttons
+      // Update rows
+      const tableBody = document.getElementById('kb-table-body');
+      if (tableBody) {
+         tableBody.innerHTML = this.renderRows(pageData);
+      }
+
+      // Update page info
+      const info1 = document.getElementById('kb-page-info');
+      const info2 = document.getElementById('kb-page-info2');
+      const pageStr = `Page ${this.currentPage} of ${totalPages}`;
+      if (info1) info1.textContent = pageStr;
+      if (info2) info2.textContent = pageStr;
+
+      // Update buttons state
       const firstPageBtn = document.getElementById('kb-first-page');
       const prevPageBtn = document.getElementById('kb-prev-page');
       const nextPageBtn = document.getElementById('kb-next-page');
@@ -243,7 +251,6 @@ class KnowledgeBase {
       if (nextPageBtn) nextPageBtn.disabled = this.currentPage >= totalPages;
       if (lastPageBtn) lastPageBtn.disabled = this.currentPage >= totalPages;
 
-      // Attach row menu listeners
       this.attachRowMenuListeners();
    }
 
@@ -264,7 +271,7 @@ class KnowledgeBase {
       if (existingMenu) existingMenu.remove();
 
       const menu = document.createElement('div');
-      menu.className = 'kb-context-menu absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50';
+      menu.className = 'kb-context-menu absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-xl border border-gray-200 py-1 z-50';
       menu.innerHTML = `
          <button class="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2" data-action="edit">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -284,7 +291,6 @@ class KnowledgeBase {
 
       button.parentElement.appendChild(menu);
 
-      // Handle menu actions
       menu.querySelectorAll('button').forEach(btn => {
          btn.addEventListener('click', async (e) => {
             e.stopPropagation();
@@ -294,84 +300,55 @@ class KnowledgeBase {
             if (action === 'edit') {
                await this.editKnowledgeItem(itemId);
             } else if (action === 'delete') {
-               await this.deleteKnowledgeItem(itemId);
+               this.triggerDeleteModal(itemId);
             }
          });
       });
 
-      // Close menu when clicking outside
+      // Close menu when clicking elsewhere
       setTimeout(() => {
-         document.addEventListener('click', () => menu.remove(), { once: true });
+         document.addEventListener('click', () => {
+            menu.remove();
+         }, { once: true });
       }, 0);
    }
 
-   static async editKnowledgeItem(itemId) {
-      const item = this.currentData.find(k => k.id === itemId);
-      if (!item) return;
-
-      // Open edit modal (reuse the manual entry view)
-      this.openEditModal(item);
+   static triggerDeleteModal(itemId) {
+      this.pendingDeleteId = itemId;
+      this.openDeleteModal();
    }
 
-   static async deleteKnowledgeItem(itemId) {
-      if (!confirm('Are you sure you want to delete this knowledge item?')) return;
-
-      try {
-         console.log('Deleting knowledge item:', itemId);
-         
-         const response = await fetch(`/api/knowledge/${itemId}`, {
-            method: 'DELETE',
-            headers: {
-               'Content-Type': 'application/json',
-            },
-         });
-
-         if (!response.ok) {
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-         }
-
-         const result = await response.json();
-         console.log('Delete response:', result);
-
-         if (result.success) {
-            this.showToast('Knowledge item deleted successfully', 'success');
-            await this.loadDocuments();
-         } else {
-            throw new Error(result.error || 'Failed to delete item');
-         }
-      } catch (error) {
-         console.error('Delete error:', error);
-         this.showToast(error.message || 'Failed to delete knowledge item', 'error');
+   static async editKnowledgeItem(itemId) {
+      const item = this.allDocuments.find(k => String(k.id) === String(itemId));
+      if (item) {
+         this.openEditModal(item);
       }
    }
 
    static showToast(message, type = 'info') {
-      // Simple toast notification
       const toast = document.createElement('div');
-      toast.className = `fixed top-4 right-4 px-6 py-3 rounded-lg shadow-lg text-white z-[200] ${
+      toast.className = `fixed top-4 right-4 px-6 py-3 rounded-lg shadow-lg text-white z-[200] transition-all duration-300 transform translate-y-[-20px] opacity-0 ${
          type === 'success' ? 'bg-green-500' : type === 'error' ? 'bg-red-500' : 'bg-blue-500'
       }`;
       toast.textContent = message;
       document.body.appendChild(toast);
 
+      // Trigger animation
       setTimeout(() => {
-         toast.style.opacity = '0';
-         toast.style.transition = 'opacity 0.3s';
+         toast.classList.remove('translate-y-[-20px]', 'opacity-0');
+      }, 10);
+
+      // Remove after 3s
+      setTimeout(() => {
+         toast.classList.add('translate-y-[-20px]', 'opacity-0');
          setTimeout(() => toast.remove(), 300);
       }, 3000);
    }
 
    static afterRender() {
-      // Load documents
       this.loadDocuments();
-
-      // Setup pagination listeners
       this.setupPaginationListeners();
-      
-      // Setup search listener
       this.setupSearchListener();
-      
-      // Inject Modal into Body
       this.injectModal();
    }
 
@@ -439,52 +416,42 @@ class KnowledgeBase {
                this.currentData = this.allDocuments;
             } else {
                this.currentData = this.allDocuments.filter(item => 
-                  item.question.toLowerCase().includes(searchTerm) ||
+                  item.question.toLowerCase().includes(searchTerm) || 
                   item.answer.toLowerCase().includes(searchTerm)
                );
             }
             
             this.currentPage = 1;
             this.updateTable();
-         }, 300); // Debounce 300ms
+         }, 300);
       });
    }
 
    static injectModal() {
       const modalHtml = `
       <div id="add-modal" class="fixed inset-0 z-[100] hidden transition-opacity duration-300 opacity-0" aria-labelledby="modal-title" role="dialog" aria-modal="true">
-        <!-- Backdrop -->
-        <div id="modal-backdrop" class="absolute inset-0 bg-black/60 backdrop-blur-[2px] transition-opacity"></div>
+        <div id="modal-backdrop" class="absolute inset-0 bg-black/60 backdrop-blur-[2px]"></div>
 
-        <div class="absolute inset-0 z-10 overflow-y-auto">
-          <div class="flex min-h-full items-center justify-center p-4 text-center">
-            
-            <div id="modal-panel" class="relative transform overflow-hidden rounded-[24px] bg-white text-left shadow-2xl transition-all w-full max-w-[600px] scale-95 opacity-0 duration-300 p-8">
-              
-              <!-- Close Button (Absolute) -->
+        <div id="modal-container" class="absolute inset-0 z-10 overflow-y-auto flex items-center justify-center p-4">
+            <div id="modal-panel" class="relative transform overflow-hidden rounded-[24px] bg-white text-left shadow-2xl transition-all w-full max-w-[600px] scale-95 opacity-0 duration-300 p-8"         
               <button id="modal-close-btn" class="absolute right-8 top-8 text-gray-400 hover:text-gray-600 transition-colors z-20">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <line x1="18" y1="6" x2="6" y2="18"></line>
-                  <line x1="6" y1="6" x2="18" y2="18"></line>
+                   <line x1="18" y1="6" x2="6" y2="18"></line>
+                   <line x1="6" y1="6" x2="18" y2="18"></line>
                 </svg>
               </button>
 
-              <!-- View 1: Selection -->
               <div id="modal-view-selection">
-                 <!-- Header -->
                  <div class="mb-6">
                     <h3 class="text-[20px] font-bold text-gray-900 mb-1">Add knowledge</h3>
                     <p class="text-[14px] text-gray-500">Choose how you want to provide the AI with knowledge.</p>
                  </div>
 
-
-                 <!-- Option List -->
                  <div class="space-y-3">
-                    <!-- Manual Option (Active Style) -->
                     <button id="btn-add-manual" class="w-full flex items-center gap-4 p-4 rounded-xl border border-black hover:bg-gray-50 transition-all text-left group bg-white shadow-sm">
                        <div class="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 group-hover:text-gray-700 transition-colors">
                           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                            <path d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path>
+                             <path d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path>
                           </svg>
                        </div>
                        <div>
@@ -493,8 +460,7 @@ class KnowledgeBase {
                        </div>
                     </button>
 
-                    <!-- CSV Option -->
-                     <button id="btn-add-csv" class="w-full flex items-center gap-4 p-4 rounded-xl border border-gray-200 hover:border-gray-300 hover:bg-gray-50 transition-all text-left group">
+                    <button id="btn-add-csv" class="w-full flex items-center gap-4 p-4 rounded-xl border border-gray-200 hover:border-gray-300 hover:bg-gray-50 transition-all text-left group">
                        <div class="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 group-hover:text-gray-700 transition-colors">
                           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
                              <ellipse cx="12" cy="5" rx="9" ry="3"></ellipse>
@@ -508,27 +474,24 @@ class KnowledgeBase {
                        </div>
                     </button>
 
-                    <!-- PDF/DOCX Option (Disabled for now) -->
-                     <button disabled class="w-full flex items-center gap-4 p-4 rounded-xl border border-gray-200 opacity-50 cursor-not-allowed text-left group bg-gray-50">
+                    <button disabled class="w-full flex items-center gap-4 p-4 rounded-xl border border-gray-200 opacity-50 cursor-not-allowed text-left group bg-gray-50">
                        <div class="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-gray-400">
                           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                            <polyline points="14 2 14 8 20 8"></polyline>
-                            <line x1="16" y1="13" x2="8" y2="13"></line>
-                            <line x1="16" y1="17" x2="8" y2="17"></line>
+                             <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                             <polyline points="14 2 14 8 20 8"></polyline>
+                             <line x1="16" y1="13" x2="8" y2="13"></line>
+                             <line x1="16" y1="17" x2="8" y2="17"></line>
                           </svg>
                        </div>
                        <div>
                           <p class="text-[14px] font-bold text-gray-900">Import .PDF, .DOCX files</p>
-                          <p class="text-[12px] text-gray-500">Coming soon </p>
+                          <p class="text-[12px] text-gray-500">Coming soon</p>
                        </div>
                     </button>
                  </div>
               </div>
 
-              <!-- View 2: CSV Upload -->
               <div id="modal-view-csv" class="hidden">
-                 <!-- Header with Icon -->
                  <div class="mb-6">
                     <div class="w-10 h-10 rounded-lg border border-gray-200 flex items-center justify-center mb-4 text-gray-600">
                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
@@ -541,7 +504,6 @@ class KnowledgeBase {
                     <p class="text-[14px] text-gray-500">Upload a .CSV file with 'question' and 'answer' columns.</p>
                  </div>
 
-                 <!-- File Upload Area -->
                  <div id="csv-upload-area" class="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center hover:border-[#E5A000] transition-colors cursor-pointer bg-gray-50">
                     <input type="file" id="csv-file-input" accept=".csv" class="hidden">
                     <div class="flex flex-col items-center">
@@ -557,7 +519,6 @@ class KnowledgeBase {
                     </div>
                  </div>
 
-                 <!-- File Preview -->
                  <div id="csv-file-preview" class="hidden mt-4 p-4 bg-blue-50 rounded-xl border border-blue-200">
                     <div class="flex items-center justify-between">
                        <div class="flex items-center gap-3">
@@ -568,7 +529,7 @@ class KnowledgeBase {
                              </svg>
                           </div>
                           <div>
-                             <p id="csv-file-name" class="text-[14px] font-semibold text-gray-900"></p>
+                             <p id="csv-file-name" class="text-[14px] font-semibold text-gray-900 truncate max-w-[200px]"></p>
                              <p id="csv-file-info" class="text-[12px] text-gray-500"></p>
                           </div>
                        </div>
@@ -581,7 +542,6 @@ class KnowledgeBase {
                     </div>
                  </div>
 
-                 <!-- Upload Progress -->
                  <div id="csv-upload-progress" class="hidden mt-4">
                     <div class="flex items-center justify-between mb-2">
                        <span class="text-[13px] font-semibold text-gray-700">Uploading...</span>
@@ -592,24 +552,16 @@ class KnowledgeBase {
                     </div>
                  </div>
 
-                 <!-- Buttons -->
                  <div class="flex items-center gap-4 mt-8">
-                    <button id="btn-csv-cancel" class="flex-1 py-3.5 rounded-full border border-gray-200 text-[15px] font-bold text-gray-700 hover:bg-gray-50 transition-colors shadow-sm">
-                       Cancel
-                    </button>
-                    <button id="btn-csv-upload" class="flex-1 py-3.5 rounded-full text-[15px] font-bold text-white bg-[#E5A000] hover:bg-[#D49000] shadow-sm transition-all shadow-[#E5A000]/20 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
-                       Upload CSV
-                    </button>
+                    <button id="btn-csv-cancel" class="flex-1 py-3.5 rounded-full border border-gray-200 text-[15px] font-bold text-gray-700 hover:bg-gray-50 transition-colors shadow-sm">Cancel</button>
+                    <button id="btn-csv-upload" class="flex-1 py-3.5 rounded-full text-[15px] font-bold text-white bg-[#E5A000] hover:bg-[#D49000] shadow-sm transition-all shadow-[#E5A000]/20 disabled:opacity-50 disabled:cursor-not-allowed" disabled>Upload CSV</button>
                  </div>
               </div>
 
-              <!-- View 3: Manual Entry -->
               <div id="modal-view-manual" class="hidden">
-                 <!-- Header with Icon -->
                  <div class="mb-6">
                     <div class="w-10 h-10 rounded-lg border border-gray-200 flex items-center justify-center mb-4 text-gray-600">
-                                    <img src="../image/flag-05.svg" alt="flag" width="24" height="24">
-                       </svg>
+                       <img src="../image/flag-05.svg" alt="flag" width="24" height="24">
                     </div>
                     <h3 class="text-[20px] font-bold text-gray-900 mb-1">Add Knowledge Manually</h3>
                     <p class="text-[14px] text-gray-500">Add the question and answer in the provided text fields.</p>
@@ -620,7 +572,6 @@ class KnowledgeBase {
                        <label class="block text-[13px] font-semibold text-gray-700 mb-2">Question*</label>
                        <input id="manual-question-input" type="text" placeholder="What is your Question?" class="w-full px-4 py-3.5 rounded-xl border border-gray-200 focus:outline-none focus:border-[#E5A000] focus:ring-1 focus:ring-[#E5A000] transition-all bg-white text-[15px] placeholder-gray-400">
                     </div>
-
                     <div>
                        <label class="block text-[13px] font-semibold text-gray-700 mb-2">Answer*</label>
                        <textarea id="manual-answer-input" rows="5" placeholder="Write your answer for the question here...." class="w-full px-4 py-3.5 rounded-xl border border-gray-200 focus:outline-none focus:border-[#E5A000] focus:ring-1 focus:ring-[#E5A000] transition-all bg-white text-[15px] placeholder-gray-400 resize-none"></textarea>
@@ -628,18 +579,12 @@ class KnowledgeBase {
                  </div>
 
                  <div class="flex items-center gap-4 mt-8">
-                    <button id="btn-manual-cancel" class="flex-1 py-3.5 rounded-full border border-gray-200 text-[15px] font-bold text-gray-700 hover:bg-gray-50 transition-colors shadow-sm">
-                       Cancel
-                    </button>
-                    <button id="btn-manual-submit" class="flex-1 py-3.5 rounded-full text-[15px] font-bold text-white bg-[#E5A000] hover:bg-[#D49000] shadow-sm transition-all shadow-[#E5A000]/20">
-                       Confirm
-                    </button>
+                    <button id="btn-manual-cancel" class="flex-1 py-3.5 rounded-full border border-gray-200 text-[15px] font-bold text-gray-700 hover:bg-gray-50 transition-colors shadow-sm">Cancel</button>
+                    <button id="btn-manual-submit" class="flex-1 py-3.5 rounded-full text-[15px] font-bold text-white bg-[#E5A000] hover:bg-[#D49000] shadow-sm transition-all shadow-[#E5A000]/20">Confirm</button>
                  </div>
               </div>
 
-              <!-- View 4: Edit Entry -->
               <div id="modal-view-edit" class="hidden">
-                 <!-- Header with Icon -->
                  <div class="mb-6">
                     <div class="w-10 h-10 rounded-lg border border-gray-200 flex items-center justify-center mb-4 text-gray-600">
                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
@@ -655,7 +600,6 @@ class KnowledgeBase {
                        <label class="block text-[13px] font-semibold text-gray-700 mb-2">Question*</label>
                        <input id="edit-question-input" type="text" placeholder="What is your Question?" class="w-full px-4 py-3.5 rounded-xl border border-gray-200 focus:outline-none focus:border-[#E5A000] focus:ring-1 focus:ring-[#E5A000] transition-all bg-white text-[15px] placeholder-gray-400">
                     </div>
-
                     <div>
                        <label class="block text-[13px] font-semibold text-gray-700 mb-2">Answer*</label>
                        <textarea id="edit-answer-input" rows="5" placeholder="Write your answer for the question here...." class="w-full px-4 py-3.5 rounded-xl border border-gray-200 focus:outline-none focus:border-[#E5A000] focus:ring-1 focus:ring-[#E5A000] transition-all bg-white text-[15px] placeholder-gray-400 resize-none"></textarea>
@@ -663,41 +607,51 @@ class KnowledgeBase {
                  </div>
 
                  <div class="flex items-center gap-4 mt-8">
-                    <button id="btn-edit-cancel" class="flex-1 py-3.5 rounded-full border border-gray-200 text-[15px] font-bold text-gray-700 hover:bg-gray-50 transition-colors shadow-sm">
-                       Cancel
-                    </button>
-                    <button id="btn-edit-submit" class="flex-1 py-3.5 rounded-full text-[15px] font-bold text-white bg-[#E5A000] hover:bg-[#D49000] shadow-sm transition-all shadow-[#E5A000]/20">
-                       Save Changes
-                    </button>
+                    <button id="btn-edit-cancel" class="flex-1 py-3.5 rounded-full border border-gray-200 text-[15px] font-bold text-gray-700 hover:bg-gray-50 transition-colors shadow-sm">Cancel</button>
+                    <button id="btn-edit-submit" class="flex-1 py-3.5 rounded-full text-[15px] font-bold text-white bg-[#E5A000] hover:bg-[#D49000] shadow-sm transition-all shadow-[#E5A000]/20">Save Changes</button>
+                 </div>
+              </div>
+
+              <div id="modal-view-delete" class="hidden text-center">
+                 <div class="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-6 text-red-600">
+                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                       <polyline points="3 6 5 6 21 6"></polyline>
+                       <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                    </svg>
+                 </div>
+                 <h3 class="text-[24px] font-bold text-gray-900 mb-2">Delete Knowledge?</h3>
+                 <p class="text-[15px] text-gray-500 mb-8 px-4">This action cannot be undone. This item will be permanently removed from your knowledge base.</p>
+                 <div class="flex items-center gap-4">
+                    <button id="btn-delete-cancel" class="flex-1 py-4 rounded-full border border-gray-200 text-[15px] font-bold text-gray-700 hover:bg-gray-50 transition-colors shadow-sm">No, keep it</button>
+                    <button id="btn-delete-confirm" class="flex-1 py-4 rounded-full text-[15px] font-bold text-white bg-red-500 hover:bg-red-600 shadow-sm transition-all shadow-red-500/20">Yes, delete</button>
                  </div>
               </div>
 
             </div>
-          </div>
         </div>
       </div>
     `;
 
-      // Remove existing modal if any
+      // Remove existing if any
       const existingModal = document.getElementById('add-modal');
       if (existingModal) existingModal.remove();
 
-      // Append to body
       document.body.insertAdjacentHTML('beforeend', modalHtml);
 
+      // DOM Elements
       const modal = document.getElementById('add-modal');
       const modalPanel = document.getElementById('modal-panel');
+      const modalContainer = document.getElementById('modal-container');
       const openBtn = document.getElementById('add-knowledge-btn');
       const closeBtn = document.getElementById('modal-close-btn');
       const backdrop = document.getElementById('modal-backdrop');
 
-      // Views
       const viewSelection = document.getElementById('modal-view-selection');
       const viewManual = document.getElementById('modal-view-manual');
       const viewCsv = document.getElementById('modal-view-csv');
       const viewEdit = document.getElementById('modal-view-edit');
+      const viewDelete = document.getElementById('modal-view-delete');
 
-      // Buttons
       const btnAddManual = document.getElementById('btn-add-manual');
       const btnAddCsv = document.getElementById('btn-add-csv');
       const btnManualCancel = document.getElementById('btn-manual-cancel');
@@ -706,8 +660,9 @@ class KnowledgeBase {
       const btnCsvUpload = document.getElementById('btn-csv-upload');
       const btnEditCancel = document.getElementById('btn-edit-cancel');
       const btnEditSubmit = document.getElementById('btn-edit-submit');
+      const btnDeleteCancel = document.getElementById('btn-delete-cancel');
+      const btnDeleteConfirm = document.getElementById('btn-delete-confirm');
 
-      // CSV upload elements
       const csvUploadArea = document.getElementById('csv-upload-area');
       const csvFileInput = document.getElementById('csv-file-input');
       const csvFilePreview = document.getElementById('csv-file-preview');
@@ -718,13 +673,11 @@ class KnowledgeBase {
       const csvProgressBar = document.getElementById('csv-progress-bar');
       const csvProgressPercent = document.getElementById('csv-progress-percent');
 
-      // Manual/Edit inputs
       const manualQuestionInput = document.getElementById('manual-question-input');
       const manualAnswerInput = document.getElementById('manual-answer-input');
       const editQuestionInput = document.getElementById('edit-question-input');
       const editAnswerInput = document.getElementById('edit-answer-input');
 
-      // Store selected file and edit ID
       let selectedCsvFile = null;
       let editingItemId = null;
 
@@ -741,33 +694,36 @@ class KnowledgeBase {
          modal.classList.add('opacity-0');
          modalPanel.classList.remove('scale-100', 'opacity-100');
          modalPanel.classList.add('scale-95', 'opacity-0');
-
          setTimeout(() => {
             modal.classList.add('hidden');
-            // Reset all views
+            [viewSelection, viewManual, viewCsv, viewEdit, viewDelete].forEach(v => v.classList.add('hidden'));
             viewSelection.classList.remove('hidden');
-            viewManual.classList.add('hidden');
-            viewCsv.classList.add('hidden');
-            viewEdit.classList.add('hidden');
-            // Reset inputs
+            
+            // Reset fields
             if (manualQuestionInput) manualQuestionInput.value = '';
             if (manualAnswerInput) manualAnswerInput.value = '';
             if (editQuestionInput) editQuestionInput.value = '';
             if (editAnswerInput) editAnswerInput.value = '';
-            // Reset CSV
+            
             selectedCsvFile = null;
-            csvFilePreview.classList.add('hidden');
-            btnCsvUpload.disabled = true;
+            if (csvFilePreview) csvFilePreview.classList.add('hidden');
+            if (btnCsvUpload) btnCsvUpload.disabled = true;
             editingItemId = null;
+            this.pendingDeleteId = null;
          }, 300);
       };
 
       const showView = (viewToShow) => {
-         [viewSelection, viewManual, viewCsv, viewEdit].forEach(v => v.classList.add('hidden'));
+         [viewSelection, viewManual, viewCsv, viewEdit, viewDelete].forEach(v => v.classList.add('hidden'));
          viewToShow.classList.remove('hidden');
       };
 
-      // CSV File Handling
+      // Close when clicking blank area (container or backdrop)
+      modalContainer.addEventListener('click', (e) => {
+         if (e.target === modalContainer) closeModal();
+      });
+      backdrop.addEventListener('click', closeModal);
+
       const handleCsvFileSelect = (file) => {
          if (!file || !file.name.endsWith('.csv')) {
             this.showToast('Please select a valid CSV file', 'error');
@@ -785,29 +741,25 @@ class KnowledgeBase {
          const result = [];
          let current = '';
          let insideQuotes = false;
-         
+
          for (let i = 0; i < line.length; i++) {
             const char = line[i];
             const nextChar = line[i + 1];
-            
+
             if (char === '"') {
                if (insideQuotes && nextChar === '"') {
-                  // Escaped quote
                   current += '"';
                   i++;
                } else {
-                  // Toggle quote state
                   insideQuotes = !insideQuotes;
                }
             } else if (char === ',' && !insideQuotes) {
-               // End of field
                result.push(current.trim());
                current = '';
             } else {
                current += char;
             }
          }
-         
          result.push(current.trim());
          return result;
       };
@@ -819,42 +771,37 @@ class KnowledgeBase {
                try {
                   const text = e.target.result;
                   const lines = text.split('\n').filter(line => line.trim());
-                  
+
                   if (lines.length < 2) {
                      reject(new Error('CSV file must contain headers and at least one data row'));
                      return;
                   }
 
                   const headers = parseCSVLine(lines[0]).map(h => h.toLowerCase());
-                  if (!headers.includes('question') || !headers.includes('answer')) {
+                  const qIdx = headers.indexOf('question');
+                  const aIdx = headers.indexOf('answer');
+
+                  if (qIdx === -1 || aIdx === -1) {
                      reject(new Error('CSV must have "question" and "answer" columns'));
                      return;
                   }
 
-                  const questionIdx = headers.indexOf('question');
-                  const answerIdx = headers.indexOf('answer');
-
                   const items = [];
                   for (let i = 1; i < lines.length; i++) {
                      const values = parseCSVLine(lines[i]);
-                     if (values.length >= Math.max(questionIdx, answerIdx) + 1) {
-                        let question = values[questionIdx]?.trim();
-                        let answer = values[answerIdx]?.trim();
+                     if (values.length >= Math.max(qIdx, aIdx) + 1) {
+                        let q = values[qIdx]?.trim();
+                        let a = values[aIdx]?.trim();
                         
-                        // Remove surrounding quotes if present
-                        if (question && question.startsWith('"') && question.endsWith('"')) {
-                           question = question.slice(1, -1);
-                        }
-                        if (answer && answer.startsWith('"') && answer.endsWith('"')) {
-                           answer = answer.slice(1, -1);
-                        }
-                        
-                        if (question && answer) {
-                           items.push({ question, answer });
+                        // Clean quotes if wrapped
+                        if (q?.startsWith('"') && q?.endsWith('"')) q = q.slice(1, -1);
+                        if (a?.startsWith('"') && a?.endsWith('"')) a = a.slice(1, -1);
+
+                        if (q && a) {
+                           items.push({ question: q, answer: a });
                         }
                      }
                   }
-
                   resolve(items);
                } catch (err) {
                   reject(err);
@@ -872,19 +819,15 @@ class KnowledgeBase {
             btnCsvUpload.disabled = true;
             btnCsvUpload.textContent = 'Processing...';
             csvUploadProgress.classList.remove('hidden');
-            console.log('Starting CSV upload:', selectedCsvFile.name);
             
-            // Parse CSV
             csvProgressBar.style.width = '30%';
             csvProgressPercent.textContent = '30%';
-            
+
             const items = await parseCsvFile(selectedCsvFile);
-            console.log('Parsed CSV items:', items);
             
             csvProgressBar.style.width = '60%';
             csvProgressPercent.textContent = '60%';
 
-            // Upload to backend
             const response = await fetch('/api/knowledge/upload/csv', {
                method: 'POST',
                headers: { 'Content-Type': 'application/json' },
@@ -893,31 +836,26 @@ class KnowledgeBase {
 
             if (!response.ok) {
                const error = await response.json();
-               throw new Error(error.error || `HTTP ${response.status}`);
+               throw new Error(error.error || `HTTP error! status: ${response.status}`);
             }
 
             const result = await response.json();
-            console.log('CSV upload response:', result);
             
             csvProgressBar.style.width = '100%';
             csvProgressPercent.textContent = '100%';
 
             setTimeout(() => {
                closeModal();
-               const message = result.data?.successful 
-                  ? `Successfully imported ${result.data.successful} items`
-                  : 'CSV uploaded successfully';
-               this.showToast(message, 'success');
+               this.showToast(result.data?.successful ? `Imported ${result.data.successful} items successfully` : 'Knowledge items uploaded successfully', 'success');
                this.loadDocuments();
             }, 500);
 
          } catch (error) {
-            console.error('CSV upload error:', error);
-            this.showToast(error.message || 'CSV upload failed', 'error');
+            console.error('CSV upload failed:', error);
+            this.showToast(error.message || 'Failed to upload CSV. Please check the file format.', 'error');
             btnCsvUpload.disabled = false;
             btnCsvUpload.textContent = 'Upload CSV';
             csvUploadProgress.classList.add('hidden');
-            csvProgressBar.style.width = '0%';
          }
       };
 
@@ -933,38 +871,29 @@ class KnowledgeBase {
          try {
             btnManualSubmit.disabled = true;
             btnManualSubmit.textContent = 'Saving...';
-            console.log('Saving manual entry:', { question, answer });
 
             const response = await fetch('/api/knowledge', {
                method: 'POST',
-               headers: { 
-                  'Content-Type': 'application/json',
-               },
-               body: JSON.stringify({ 
-                  question, 
-                  answer, 
-                  type: 'manual' 
+               headers: { 'Content-Type': 'application/json' },
+               body: JSON.stringify({
+                  question,
+                  answer,
+                  type: 'manual'
                })
             });
 
-            if (!response.ok) {
-               throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-            }
-
             const result = await response.json();
-            console.log('Save response:', result);
 
             if (result.success) {
                closeModal();
-               this.showToast('Knowledge added successfully', 'success');
+               this.showToast('Knowledge item added successfully', 'success');
                await this.loadDocuments();
             } else {
                throw new Error(result.error || 'Failed to save');
             }
-
          } catch (error) {
-            console.error('Save error:', error);
-            this.showToast(error.message || 'Failed to add knowledge', 'error');
+            console.error('Manual save failed:', error);
+            this.showToast(error.message || 'Failed to save knowledge item', 'error');
          } finally {
             btnManualSubmit.disabled = false;
             btnManualSubmit.textContent = 'Confirm';
@@ -975,69 +904,79 @@ class KnowledgeBase {
          const question = editQuestionInput.value.trim();
          const answer = editAnswerInput.value.trim();
 
-         if (!question || !answer || !editingItemId) {
-            this.showToast('Please fill in both question and answer', 'error');
-            return;
-         }
+         if (!question || !answer || !editingItemId) return;
 
          try {
             btnEditSubmit.disabled = true;
             btnEditSubmit.textContent = 'Saving...';
-            console.log('Updating knowledge item:', { id: editingItemId, question, answer });
 
             const response = await fetch(`/api/knowledge/${editingItemId}`, {
                method: 'PUT',
-               headers: { 
-                  'Content-Type': 'application/json',
-               },
-               body: JSON.stringify({ 
-                  question, 
-                  answer 
-               })
+               headers: { 'Content-Type': 'application/json' },
+               body: JSON.stringify({ question, answer })
             });
 
-            if (!response.ok) {
-               throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-            }
-
             const result = await response.json();
-            console.log('Update response:', result);
 
             if (result.success) {
                closeModal();
-               this.showToast('Knowledge updated successfully', 'success');
+               this.showToast('Knowledge item updated successfully', 'success');
                await this.loadDocuments();
             } else {
                throw new Error(result.error || 'Failed to update');
             }
-
          } catch (error) {
-            console.error('Update error:', error);
-            this.showToast(error.message || 'Failed to update knowledge', 'error');
+            console.error('Edit save failed:', error);
+            this.showToast('Failed to update knowledge item', 'error');
          } finally {
             btnEditSubmit.disabled = false;
             btnEditSubmit.textContent = 'Save Changes';
          }
       };
 
-      // Event listeners
+      const confirmDelete = async () => {
+         if (!this.pendingDeleteId) return;
+
+         try {
+            btnDeleteConfirm.disabled = true;
+            btnDeleteConfirm.textContent = 'Deleting...';
+
+            const response = await fetch(`/api/knowledge/${this.pendingDeleteId}`, {
+               method: 'DELETE'
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+               closeModal();
+               this.showToast('Knowledge item deleted successfully', 'success');
+               await this.loadDocuments();
+            } else {
+               throw new Error(result.error || 'Failed to delete');
+            }
+         } catch (error) {
+            console.error('Delete failed:', error);
+            this.showToast('Failed to delete knowledge item', 'error');
+         } finally {
+            btnDeleteConfirm.disabled = false;
+            btnDeleteConfirm.textContent = 'Delete';
+         }
+      };
+
+      // Event Listeners
       if (openBtn) openBtn.addEventListener('click', openModal);
       if (closeBtn) closeBtn.addEventListener('click', closeModal);
-      if (backdrop) backdrop.addEventListener('click', closeModal);
-
-      // View switching
       if (btnAddManual) btnAddManual.addEventListener('click', () => showView(viewManual));
       if (btnAddCsv) btnAddCsv.addEventListener('click', () => showView(viewCsv));
       if (btnManualCancel) btnManualCancel.addEventListener('click', closeModal);
       if (btnCsvCancel) btnCsvCancel.addEventListener('click', closeModal);
       if (btnEditCancel) btnEditCancel.addEventListener('click', closeModal);
+      if (btnDeleteCancel) btnDeleteCancel.addEventListener('click', closeModal);
+      if (btnManualSubmit) btnManualSubmit.addEventListener('click', saveManualEntry);
+      if (btnCsvUpload) btnCsvUpload.addEventListener('click', uploadCsvFile);
+      if (btnEditSubmit) btnEditSubmit.addEventListener('click', saveEditEntry);
+      if (btnDeleteConfirm) btnDeleteConfirm.addEventListener('click', confirmDelete);
 
-      // Form submissions
-      if (btnManualSubmit) btnManualSubmit.addEventListener('click', () => saveManualEntry());
-      if (btnCsvUpload) btnCsvUpload.addEventListener('click', () => uploadCsvFile());
-      if (btnEditSubmit) btnEditSubmit.addEventListener('click', () => saveEditEntry());
-
-      // CSV file handling
       if (csvUploadArea) {
          csvUploadArea.addEventListener('click', () => csvFileInput.click());
          csvUploadArea.addEventListener('dragover', (e) => {
@@ -1074,13 +1013,18 @@ class KnowledgeBase {
          });
       }
 
-      // Expose openEditModal for row menu
+      // Helper methods exposed
       this.openEditModal = (item) => {
          editingItemId = item.id;
          editQuestionInput.value = item.question;
          editAnswerInput.value = item.answer;
          openModal();
          showView(viewEdit);
+      };
+
+      this.openDeleteModal = () => {
+         openModal();
+         showView(viewDelete);
       };
    }
 }

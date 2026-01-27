@@ -167,8 +167,20 @@ class VertexAIRagService {
 
     console.log('[RAG Upload] Response:', JSON.stringify(res.data).substring(0, 200));
     
-    const fileId = res.data.name?.split('/').pop() || res.data.id || uuidv4();
-    const resourceName = res.data.name || `projects/${this.config.projectId}/locations/${this.config.location}/ragCorpora/${this.config.corpusId}/ragFiles/${fileId}`;
+    // IMPORTANT: Resource name is nested inside ragFile object
+    const fullResourceName = res.data.ragFile?.name;
+    if (!fullResourceName) {
+      console.error('❌ ERROR: RAG API did not return a resource name. Response:', JSON.stringify(res.data, null, 2));
+      throw new Error('RAG API response missing required "ragFile.name" field');
+    }
+    
+    console.log(`✅ RAG File Full Resource Name: ${fullResourceName}`);
+    
+    // Extract just the numeric ID from the resource name for cache and reference
+    const fileId = fullResourceName.split('/').pop() || uuidv4();
+    console.log(`ℹ️  RAG File Numeric ID: ${fileId}`);
+    
+    const resourceName = fullResourceName; // Use the full name returned by Vertex AI
     
     this.qaCache.set(fileId, { question: displayName || 'Untitled', answer: description || '' });
 
@@ -302,11 +314,58 @@ Use this EXACT phrase if you don't know the answer: "${FALLBACK_MESSAGE}"
     };
   }
 
-  async deleteFile(fileId: string): Promise<boolean> {
+  async deleteFile(fileIdOrResourceName: string): Promise<boolean> {
     if (!this.client) return false;
-    const url = `${this.config.endpoint}/projects/${this.config.projectId}/locations/${this.config.location}/ragCorpora/${this.config.corpusId}/ragFiles/${fileId}`;
-    await this.client.delete(url);
-    return true;
+    
+    if (!fileIdOrResourceName) {
+      throw new Error('File ID or resource name is required for deletion');
+    }
+    
+    let resourceName: string;
+    
+    // If it's already a full resource name (contains /ragFiles/), use it as-is
+    if (fileIdOrResourceName.includes('/ragFiles/')) {
+      resourceName = fileIdOrResourceName;
+      console.log(`📋 Using full resource name for deletion: ${resourceName}`);
+    } else {
+      // Just a numeric ID, construct the full resource name
+      resourceName = `projects/${this.config.projectId}/locations/${this.config.location}/ragCorpora/${this.config.corpusId}/ragFiles/${fileIdOrResourceName}`;
+      console.log(`📋 Constructed resource name from ID '${fileIdOrResourceName}': ${resourceName}`);
+    }
+    
+    // Validate that resource name has the numeric ID at the end (not a UUID)
+    const lastSegment = resourceName.split('/').pop();
+    if (lastSegment?.includes('-')) {
+      console.warn(`⚠️  WARNING: File ID appears to be a UUID '${lastSegment}', but Vertex AI expects numeric IDs`);
+    }
+    
+    // Use the same URL pattern as upload: hardcode the endpoint URL
+    const deleteUrl = `https://${this.config.location}-aiplatform.googleapis.com/v1beta1/${resourceName}`;
+    
+    console.log(`🗑️  RAG Delete URL: ${deleteUrl}`);
+    
+    try {
+      // Use axios directly like uploadFile does, passing auth headers explicitly
+      const response = await axios.delete(deleteUrl, {
+        headers: {
+          Authorization: this.client.defaults.headers['Authorization'],
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      console.log(`✅ RAG Delete Response: Status ${response.status} ${response.statusText}`);
+      return true;
+    } catch (error: any) {
+      console.error(`❌ RAG Delete Error:`, {
+        url: deleteUrl,
+        resourceName,
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        message: error.message,
+        data: error.response?.data
+      });
+      throw error;
+    }
   }
 
   private getFileType(filename: any): 'manual' | 'csv' | 'pdf' | 'docx' {
