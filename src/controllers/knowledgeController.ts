@@ -83,11 +83,7 @@ export const getAllKnowledge = async (req: Request, res: Response): Promise<void
  */
 export const getKnowledgeStats = async (req: Request, res: Response): Promise<void> => {
   try {
-    if (!vertexAIRag.isInitialized()) {
-      (res as any).status(503).json({ success: false, error: 'RAG service not initialized' });
-      return;
-    }
-    const stats = await vertexAIRag.getStats();
+    const stats = await firebaseService.getDetailedStats();
     (res as any).json({ success: true, data: stats });
   } catch (error: any) {
     (res as any).status(500).json({ success: false, error: error.message });
@@ -105,17 +101,16 @@ export const getKnowledgeById = async (req: Request, res: Response): Promise<voi
       return;
     }
 
-    const files = await vertexAIRag.listFiles();
-    const file = files.find((f) => f.id === String(id));
+    const item = await firebaseService.getKnowledgeById(id as string);
 
-    if (!file) {
-      (res as any).status(404).json({ success: false, error: 'File not found' });
+    if (!item) {
+      (res as any).status(404).json({ success: false, error: 'Knowledge item not found' });
       return;
     }
 
-    (res as any).json({ 
-      success: true, 
-      data: mapFileToUI(file) 
+    (res as any).json({
+      success: true,
+      data: item
     });
   } catch (error: any) {
     (res as any).status(500).json({ success: false, error: error.message });
@@ -147,7 +142,7 @@ export const createKnowledge = async (req: Request, res: Response): Promise<void
       answer.substring(0, 500)
     );
 
-    try { fs.unlinkSync(tempFile); } catch (e) {}
+    try { fs.unlinkSync(tempFile); } catch (e) { }
 
     // Handle case where ragFile might not have a name property
     if (!ragFile || !ragFile.name) {
@@ -232,7 +227,7 @@ export const updateKnowledge = async (req: Request, res: Response): Promise<void
 
     const ragFile = await vertexAIRag.uploadFile(tempFile, question.substring(0, 100), answer.substring(0, 500));
     console.log(`✅ New RAG file uploaded: ${ragFile.name}`);
-    try { fs.unlinkSync(tempFile); } catch (e) {}
+    try { fs.unlinkSync(tempFile); } catch (e) { }
 
     // 3. Update Firebase metadata with new RAG file reference
     console.log(`💾 Updating Firebase metadata...`);
@@ -269,7 +264,7 @@ export const updateKnowledge = async (req: Request, res: Response): Promise<void
 export const deleteKnowledge = async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params as { id: string };
-    
+
     if (!id) {
       (res as any).status(400).json({ success: false, error: 'Knowledge ID required' });
       return;
@@ -283,12 +278,12 @@ export const deleteKnowledge = async (req: Request, res: Response): Promise<void
     } catch (e) {
       console.warn('⚠️  Could not fetch knowledge from Firebase, attempting RAG deletion anyway');
     }
-    
+
     if (!knowledge) {
       (res as any).status(404).json({ success: false, error: 'Knowledge item not found' });
       return;
     }
-    
+
     // 1. Delete from Vertex AI RAG
     if (knowledge.ragFileId) {
       try {
@@ -304,7 +299,7 @@ export const deleteKnowledge = async (req: Request, res: Response): Promise<void
     } else {
       console.log('⚠️  No RAG file ID found, skipping RAG deletion');
     }
-    
+
     // 2. Delete from Firebase Firestore
     try {
       console.log(`🗑️  Deleting from Firebase: ${id}`);
@@ -316,10 +311,10 @@ export const deleteKnowledge = async (req: Request, res: Response): Promise<void
     }
 
     console.log(`✅ Knowledge item successfully deleted from both RAG and Firebase`);
-    (res as any).json({ 
-      success: true, 
+    (res as any).json({
+      success: true,
       message: 'Knowledge item deleted from both RAG and Firebase',
-      id 
+      id
     });
   } catch (error: any) {
     console.error('❌ Delete knowledge error:', error.message);
@@ -347,12 +342,12 @@ export const uploadCSV = async (req: Request, res: Response): Promise<void> => {
     // Upload each Q&A pair as a separate file
     for (let i = 0; i < items.length; i++) {
       const item = items[i];
-      
+
       try {
         const fileId = `csv_qa_${Date.now()}_${i}`;
         const tempFile = path.join(RAG_TEMP_DIR, `${fileId}.txt`);
         const content = `Q: ${item.question.trim()}\n\nA: ${item.answer.trim()}`;
-        
+
         fs.writeFileSync(tempFile, content);
 
         // 1. Upload to Vertex AI RAG
@@ -374,8 +369,8 @@ export const uploadCSV = async (req: Request, res: Response): Promise<void> => {
         });
 
         uploadedFiles.push(ragFile);
-        
-        try { fs.unlinkSync(tempFile); } catch (e) {}
+
+        try { fs.unlinkSync(tempFile); } catch (e) { }
       } catch (error: any) {
         console.error(`❌ CSV row ${i + 1} error:`, error);
         errors.push(`Row ${i + 1}: ${error.message}`);

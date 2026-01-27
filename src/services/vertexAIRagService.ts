@@ -31,19 +31,22 @@ interface CacheEntry {
   timestamp: number;
 }
 
+/**
+ * Service responsible for interacting with Google Cloud Vertex AI to perform RAG (Retrieval-Augmented Generation).
+ * It handles:
+ * 1. Managing the RAG Corpus (uploading, listing, deleting files).
+ * 2. Querying the Gemini model with retrieval context (RAG).
+ * 3. Local caching to optimize performance and reduce API costs.
+ */
 class VertexAIRagService {
   private config: RagCorpusConfig;
   private client: AxiosInstance | null = null;
   private initialized = false;
   private environment: 'local' | 'cloud-run' = 'local';
 
-  // Keeps metadata mapping only (NOT caching answers)
-  private qaCache: Map<string, { question: string; answer: string }> = new Map();
 
-  // Local answer cache for fast repeated queries
-  private localAnswerCache: Map<string, CacheEntry> = new Map();
-  private readonly CACHE_TTL = 5 * 60 * 1000; // 5 minutes
-  private readonly MAX_CACHE_SIZE = 100;
+
+
 
   constructor() {
     const loc = process.env.LOCATION || 'us-west1';
@@ -73,6 +76,10 @@ class VertexAIRagService {
     return token.token;
   }
 
+  /**
+   * Sets up the Google Auth client and resolves the Corpus ID.
+   * This MUST be called before any other operation.
+   */
   async initialize(): Promise<void> {
     if (!this.config.projectId || (!this.config.corpusName && !process.env.RESOURCE_NAME)) {
       throw new Error('Missing PROJECT_ID or CORPUS_NAME');
@@ -92,6 +99,10 @@ class VertexAIRagService {
     console.log('✅ Vertex AI RAG Service initialized');
   }
 
+  /**
+   * Finds the specific Corpus ID (e.g., '12345') associated with the friendly display name (e.g., 'My Corpus').
+   * Vertex AI requires the numeric ID for API calls, not the display name.
+   */
   private async resolveCorpus(): Promise<void> {
     if (process.env.RESOURCE_NAME) {
       const parts = process.env.RESOURCE_NAME.split('/');
@@ -112,40 +123,13 @@ class VertexAIRagService {
     this.config.corpusId = corpus.name.split('/').pop();
   }
 
-  private checkLocalCache(query: string): string | null {
-    const sanitizedQuery = query.trim().toLowerCase();
-    const entry = this.localAnswerCache.get(sanitizedQuery);
 
-    if (entry && (Date.now() - entry.timestamp) < this.CACHE_TTL) {
-      console.log(`Local cache hit for query: ${query.substring(0, 50)}...`);
-      return entry.answer;
-    }
 
-    // Remove expired entry
-    if (entry) {
-      this.localAnswerCache.delete(sanitizedQuery);
-    }
-
-    return null;
-  }
-
-  private updateLocalCache(query: string, answer: string): void {
-    const sanitizedQuery = query.trim().toLowerCase();
-    this.localAnswerCache.set(sanitizedQuery, {
-      question: query,
-      answer,
-      timestamp: Date.now()
-    });
-
-    // Limit cache size
-    if (this.localAnswerCache.size > this.MAX_CACHE_SIZE) {
-      const firstKey = this.localAnswerCache.keys().next().value;
-      if (firstKey) {
-        this.localAnswerCache.delete(firstKey);
-      }
-    }
-  }
-
+  /**
+   * Uploads a file (text, PDF, etc.) to Vertex AI.
+   * This makes the content searchable by the RAG system.
+   * Returns metadata including the new Resource Name.
+   */
   async uploadFile(filePath: string, displayName?: string, description?: string): Promise<RagFile> {
     if (!this.initialized || !this.client) throw new Error('Not initialized');
 
@@ -182,7 +166,7 @@ class VertexAIRagService {
 
     const resourceName = fullResourceName; // Use the full name returned by Vertex AI
 
-    this.qaCache.set(fileId, { question: displayName || 'Untitled', answer: description || '' });
+
 
     return {
       id: fileId,
@@ -197,19 +181,18 @@ class VertexAIRagService {
   }
 
   /**
-   * PURE RAG CALL (Stateless) with local caching
-   * Enhanced prompt for better greeting handling and email collection
+   * The core RAG function.
+   * 1. Checks local cache for exact matches.
+   * 2. Constructs a system prompt with instructions for tone and fallback.
+   * 3. Calls Gemini API with the 'retrieval' tool enabled (pointing to our corpus).
+   * 4. Returns the generated answer or the fallback message.
    */
   async retrieveContextsWithRAG(query: string, topK = 3): Promise<string> {
     if (!this.initialized || !this.client) {
       return 'I apologize, but I\'m currently unavailable. Please try again in a moment.';
     }
 
-    // Check local cache first
-    const cachedAnswer = this.checkLocalCache(query);
-    if (cachedAnswer) {
-      return cachedAnswer;
-    }
+
 
     const corpusResource = `projects/${this.config.projectId}/locations/${this.config.location}/ragCorpora/${this.config.corpusId}`;
     const geminiUrl = `https://${this.config.location}-aiplatform.googleapis.com/v1beta1/projects/${this.config.projectId}/locations/${this.config.location}/publishers/google/models/gemini-2.5-flash:generateContent`;
@@ -261,8 +244,7 @@ Use this EXACT phrase if you don't know the answer: "${FALLBACK_MESSAGE}"
         answer = FALLBACK_MESSAGE;
       }
 
-      // Update local cache
-      this.updateLocalCache(query, answer);
+
 
       return answer;
     } catch (err: any) {
@@ -273,50 +255,10 @@ Use this EXACT phrase if you don't know the answer: "${FALLBACK_MESSAGE}"
 
   // ---------- LEGACY + ADMIN METHODS ----------
 
-  async retrieveContexts(query: string, topK = 5): Promise<any[]> {
-    const answer = await this.retrieveContextsWithRAG(query, topK);
-    return [{ text: answer }];
-  }
-
-  async listFiles(pageSize = 100): Promise<RagFile[]> {
-    if (!this.initialized || !this.client) return [];
-
-    const url = `${this.config.endpoint}/projects/${this.config.projectId}/locations/${this.config.location}/ragCorpora/${this.config.corpusId}/ragFiles`;
-    const res = await this.client.get(url, { params: { pageSize } });
-
-    return (res.data.ragFiles || []).map((file: any) => {
-      const id = file.name?.split('/').pop() || '';
-      const cached = this.qaCache.get(id);
-      return {
-        id,
-        name: file.name,
-        displayName: cached?.question || file.displayName || 'Untitled',
-        description: cached?.answer || file.description || '',
-        type: this.getFileType(file.name),
-        createdAt: file.createTime,
-        updatedAt: file.updateTime,
-        status: file.fileStatus?.state === 'ACTIVE' ? 'COMPLETED' : 'PROCESSING',
-      };
-    });
-  }
-
-  async getStats() {
-    const files = await this.listFiles();
-    return {
-      totalFiles: files.length,
-      byType: {
-        manual: files.filter(f => f.type === 'manual').length,
-        csv: files.filter(f => f.type === 'csv').length,
-        pdf: files.filter(f => f.type === 'pdf').length,
-        docx: files.filter(f => f.type === 'docx').length,
-      },
-      cacheStats: {
-        localCacheSize: this.localAnswerCache.size,
-        metadataCacheSize: this.qaCache.size
-      }
-    };
-  }
-
+  /**
+   * Removes a file from the Vertex AI RAG corpus.
+   * Handles both full resource names (projects/.../ragFiles/123) and simple IDs.
+   */
   async deleteFile(fileIdOrResourceName: string): Promise<boolean> {
     if (!this.client) return false;
 
@@ -388,10 +330,7 @@ Use this EXACT phrase if you don't know the answer: "${FALLBACK_MESSAGE}"
     return { ...this.config };
   }
 
-  // Clear local cache (useful for testing)
-  clearLocalCache(): void {
-    this.localAnswerCache.clear();
-  }
+  // No longer using local cache
 }
 
 export const vertexAIRag = new VertexAIRagService();

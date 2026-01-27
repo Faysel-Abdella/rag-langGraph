@@ -350,6 +350,31 @@ class FirebaseService {
     }
   }
 
+  /**
+   * Get detailed statistics for the knowledge base
+   */
+  async getDetailedStats(): Promise<any> {
+    if (!this.db) await this.initialize();
+
+    try {
+      const snapshot = await this.db!.collection('knowledge').get();
+      const files = snapshot.docs.map(doc => doc.data());
+
+      return {
+        totalFiles: files.length,
+        byType: {
+          manual: files.filter(f => f.type === 'manual').length,
+          csv: files.filter(f => f.type === 'csv').length,
+          pdf: files.filter(f => f.type === 'pdf').length,
+          docx: files.filter(f => f.type === 'docx').length,
+        }
+      };
+    } catch (error: any) {
+      console.error('Failed to get detailed stats:', error);
+      return { totalFiles: 0, byType: { manual: 0, csv: 0, pdf: 0, docx: 0 } };
+    }
+  }
+
   // ============================================
   // CONVERSATION METHODS
   // ============================================
