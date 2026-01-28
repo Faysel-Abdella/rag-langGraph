@@ -34,7 +34,7 @@ const workflow = new StateGraph<{ __root__: any }>({
     try {
       const currentState = state.__root__.value as ChatState;
       const { message, sessionId } = currentState;
-      
+
       if (!message) {
         return {
           __root__: {
@@ -47,11 +47,11 @@ const workflow = new StateGraph<{ __root__: any }>({
           }
         };
       }
-      
+
       // Check cache first
       console.log(`Checking cache for: ${message.substring(0, 50)}...`);
       const cachedAnswer = await firebaseService.getCachedAnswer(message);
-      
+
       if (cachedAnswer) {
         console.log(`Cache hit for message: ${message.substring(0, 50)}...`);
         return {
@@ -64,7 +64,7 @@ const workflow = new StateGraph<{ __root__: any }>({
           }
         };
       }
-      
+
       // No cache hit
       console.log('No cache hit');
       return {
@@ -93,7 +93,7 @@ const workflow = new StateGraph<{ __root__: any }>({
     try {
       const currentState = state.__root__.value as ChatState;
       const { message, sessionId } = currentState;
-      
+
       if (!message) {
         return {
           __root__: {
@@ -106,10 +106,10 @@ const workflow = new StateGraph<{ __root__: any }>({
           }
         };
       }
-      
+
       console.log(`RAG retrieval for: ${message.substring(0, 50)}...`);
       const answer = await vertexAIRag.retrieveContextsWithRAG(message, 5);
-      
+
       // Save to cache for future use (ONLY if it's not a fallback message)
       if (answer !== FALLBACK_MESSAGE) {
         try {
@@ -119,7 +119,7 @@ const workflow = new StateGraph<{ __root__: any }>({
           console.warn('Failed to save to cache:', cacheError);
         }
       }
-      
+
       return {
         __root__: {
           value: {
@@ -146,12 +146,12 @@ const workflow = new StateGraph<{ __root__: any }>({
     try {
       const currentState = state.__root__.value as ChatState;
       const { answer, cached } = currentState;
-      
+
       let finalAnswer = answer;
       if (cached && answer) {
         finalAnswer = `${answer}`;
       }
-      
+
       return {
         __root__: {
           value: {
@@ -194,7 +194,7 @@ function extractEmail(text: string): string | null {
 }
 
 export class ChatController {
-  
+
   static async handleMessage(req: Request, res: Response): Promise<void> {
     const { message, sessionId } = req.body;
 
@@ -216,7 +216,7 @@ export class ChatController {
           console.warn('Firebase initialization warning:', firebaseError);
         }
       }
-      
+
       if (!vertexAIRag.isInitialized()) {
         try {
           await vertexAIRag.initialize();
@@ -232,36 +232,36 @@ export class ChatController {
       const email = extractEmail(message);
       if (email) {
         console.log(`📧 Detected email in user message: ${email}`);
-        
+
         // Fetch recent conversation history to see if the bot asked for it
         const history = await firebaseService.getConversationMessages(sessionId);
-        
+
         // We look for the pattern: 
         // 1. User asks question (Question to escalate)
         // 2. Bot replies with FALLBACK_MESSAGE (or similar)
         // 3. User replies with Email (Current message)
-        
+
         if (history.length >= 2) {
           const lastBotMsg = history[history.length - 1]; // The message before current one should be bot
           const prevUserMsg = history[history.length - 2]; // The message before that was the question
-          
+
           // Check if the last bot message was the fallback prompt
-          if (lastBotMsg.sender === 'assistant' && 
-              (lastBotMsg.content.includes("share your email") || lastBotMsg.content === FALLBACK_MESSAGE)) {
-            
+          if (lastBotMsg.sender === 'assistant' &&
+            (lastBotMsg.content.includes("share your email") || lastBotMsg.content === FALLBACK_MESSAGE)) {
+
             const questionToEscalate = prevUserMsg.content;
             console.log(`📝 Creating escalation for question: "${questionToEscalate}"`);
 
             await firebaseService.createEscalation({
               user: email,
               question: questionToEscalate,
-              reason: 'Low confidence',
+              sessionId: sessionId,
               status: 'open'
             });
 
             // Send confirmation response immediately
             const confirmationMsg = "Thank you! We've created a support ticket for your issue. Our team will review it and contact you shortly via email.";
-            
+
             // Ensure session exists before adding messages
             try {
               const existingSession = await firebaseService.getConversation(sessionId);
@@ -272,7 +272,7 @@ export class ChatController {
             } catch (sessionError) {
               console.warn('Could not verify/create session:', sessionError);
             }
-            
+
             // Save to history
             await firebaseService.addMessage(sessionId, 'user', message);
             await firebaseService.addMessage(sessionId, 'assistant', confirmationMsg);
@@ -281,11 +281,11 @@ export class ChatController {
             res.setHeader('Content-Type', 'text/event-stream');
             res.setHeader('Cache-Control', 'no-cache');
             res.setHeader('Connection', 'keep-alive');
-            
-            res.write(`data: ${JSON.stringify({ 
+
+            res.write(`data: ${JSON.stringify({
               chunk: confirmationMsg,
               isCached: false,
-              sessionId 
+              sessionId
             })}\n\n`);
             res.write('data: [DONE]\n\n');
             res.end();
@@ -299,10 +299,10 @@ export class ChatController {
       // ==========================================
 
       // Set up config with thread_id for memory
-      const config = { 
-        configurable: { 
-          thread_id: sessionId 
-        } 
+      const config = {
+        configurable: {
+          thread_id: sessionId
+        }
       };
 
       // Create initial state
@@ -314,12 +314,12 @@ export class ChatController {
       };
 
       console.log('Invoking LangGraph...');
-      
+
       const result = await graph.invoke(
         { __root__: { value: initialState } },
         config
       );
-      
+
       // Type assertion to access the result
       const resultState = (result as any).__root__?.value as ChatState;
       const answer = resultState?.answer || 'Sorry, I could not generate a response.';
@@ -336,12 +336,12 @@ export class ChatController {
       const chunkSize = 100;
       for (let i = 0; i < answer.length; i += chunkSize) {
         const chunk = answer.slice(i, i + chunkSize);
-        res.write(`data: ${JSON.stringify({ 
+        res.write(`data: ${JSON.stringify({
           chunk,
           isCached,
-          sessionId 
+          sessionId
         })}\n\n`);
-        
+
         // Add a small delay for streaming effect
         await new Promise(resolve => setTimeout(resolve, 10));
       }
@@ -372,16 +372,16 @@ export class ChatController {
 
     } catch (error: any) {
       console.error('Error in chat controller:', error);
-      
+
       // Send error as SSE
       res.setHeader('Content-Type', 'text/event-stream');
       res.setHeader('Cache-Control', 'no-cache');
       res.setHeader('Connection', 'keep-alive');
-      
+
       const errorMessage = error.message || 'An error occurred. Please try again later.';
-      res.write(`data: ${JSON.stringify({ 
+      res.write(`data: ${JSON.stringify({
         error: errorMessage,
-        sessionId 
+        sessionId
       })}\n\n`);
       res.write('data: [DONE]\n\n');
       res.end();

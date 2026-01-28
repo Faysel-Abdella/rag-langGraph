@@ -65,11 +65,11 @@ class Escalations {
                     <th class="w-16 p-5 text-center">
                        <input type="checkbox" class="w-5 h-5 rounded border-gray-300 text-[#E5A000] focus:ring-[#E5A000] cursor-pointer">
                     </th>
-                    <th class="text-left py-5 px-2 text-[13px] font-semibold text-gray-500">User</th>
-                    <th class="text-left py-5 px-4 text-[13px] font-semibold text-gray-500">User Question</th>
-                    <th class="text-left py-5 px-4 text-[13px] font-semibold text-gray-500">Reason</th>
-                    <th class="text-left py-5 px-4 text-[13px] font-semibold text-gray-500">Issue date</th>
-                    <th class="w-16 p-5"></th>
+                     <th class="text-left py-5 px-2 text-[13px] font-semibold text-gray-500">User</th>
+                     <th class="text-left py-5 px-4 text-[13px] font-semibold text-gray-500">User Question</th>
+                     <th class="text-left py-5 px-4 text-[13px] font-semibold text-gray-500">Full Context</th>
+                     <th class="text-left py-5 px-4 text-[13px] font-semibold text-gray-500">Issue date</th>
+                     <th class="w-16 p-5"></th>
                  </tr>
               </thead>
               <tbody class="divide-y divide-gray-100" id="escalations-table-body">
@@ -138,10 +138,14 @@ class Escalations {
           ${this.escapeHtml(row.question || '-')}
         </td>
         <td class="py-5 px-4">
-           <span class="inline-flex items-center gap-2 px-2.5 py-1 rounded-full text-[13px] font-medium ${this.getReasonBadgeClass(row.reason)}">
-              <span class="w-2 h-2 rounded-full" style="background-color: ${this.getReasonColor(row.reason)}"></span>
-              ${this.escapeHtml(row.reason || '-')}
-           </span>
+           <button 
+              class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-[13px] font-semibold bg-[#E5A000]/10 text-[#E5A000] hover:bg-[#E5A000]/20 transition-all"
+              onclick="window.location.hash = 'conversations/${row.sessionId}';">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                 <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+              </svg>
+              View Session
+           </button>
         </td>
         <td class="py-5 px-4 text-[14px] text-gray-500">${this.formatDate(row.date)}</td>
          <td class="p-5 text-center">
@@ -199,8 +203,7 @@ class Escalations {
       if (searchTerm) {
          filtered = filtered.filter(item =>
             (item.user && item.user.toLowerCase().includes(searchTerm)) ||
-            (item.question && item.question.toLowerCase().includes(searchTerm)) ||
-            (item.reason && item.reason.toLowerCase().includes(searchTerm))
+            (item.question && item.question.toLowerCase().includes(searchTerm))
          );
       }
 
@@ -351,12 +354,7 @@ class Escalations {
       } catch (err) { console.error(err); }
    }
 
-   static getReasonBadgeClass(reason) {
-      return reason === 'Low confidence' ? 'bg-orange-50 text-orange-700' : 'bg-gray-100 text-gray-700';
-   }
-   static getReasonColor(reason) {
-      return reason === 'Low confidence' ? '#f39c12' : '#cbd5e1';
-   }
+
    static escapeHtml(text) {
       const div = document.createElement('div');
       div.textContent = text || '';

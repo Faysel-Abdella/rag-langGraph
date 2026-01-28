@@ -25,7 +25,7 @@ export interface Escalation {
   id: string;
   user: string;     // Email
   question: string; // The question that failed
-  reason: string;   // e.g., 'Low confidence'
+  sessionId: string; // The session ID where it happened
   date: string;     // ISO string
   status: 'open' | 'resolved';
 }
@@ -455,9 +455,15 @@ class FirebaseService {
   async startConversation(sessionId: string, userIdentifier?: string): Promise<void> {
     if (!this.db) await this.initialize();
 
+    const now = new Date();
+    const dateStr = now.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+
     await this.db!.collection('conversations').doc(sessionId).set({
       id: sessionId,
       userId: userIdentifier || 'anonymous',
+      title: `Chat on ${dateStr} at ${timeStr}`, // descriptive default title
+      avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${sessionId}`,
       status: 'active',
       startedAt: admin.firestore.FieldValue.serverTimestamp(),
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -484,12 +490,24 @@ class FirebaseService {
         timestamp,
       });
 
-    // Update conversation metadata (or create if doesn't exist)
-    await this.db!.collection('conversations').doc(sessionId).set({
+    // Get current conversation to check for title
+    const convRef = this.db!.collection('conversations').doc(sessionId);
+    const convDoc = await convRef.get();
+    const convData = convDoc.data();
+
+    const updateData: any = {
       lastMessage: content.substring(0, 100),
       updatedAt: timestamp,
       messageCount: admin.firestore.FieldValue.increment(1),
-    }, { merge: true }); // merge: true ensures we don't overwrite existing fields
+    };
+
+    // If it's the first user message, update the title with the message content
+    if (sender === 'user' && (!convData || !convData.title || convData.title.startsWith('Visitor'))) {
+      updateData.title = content.substring(0, 40) + (content.length > 40 ? '...' : '');
+    }
+
+    // Update conversation metadata
+    await convRef.set(updateData, { merge: true });
   }
 
   /**
@@ -698,7 +716,7 @@ class FirebaseService {
           id: doc.id,
           user: data.user,
           question: data.question,
-          reason: data.reason,
+          sessionId: data.sessionId,
           date: data.date,
           status: data.status
         } as Escalation;

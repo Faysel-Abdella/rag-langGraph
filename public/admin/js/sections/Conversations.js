@@ -96,6 +96,24 @@ class Conversations {
          if (data && (data.success || Array.isArray(data.conversations))) {
             this.allConversations = data.conversations || [];
             this.renderConversationList(this.allConversations);
+
+            // Handle deep linking to a specific session
+            if (window.app && window.app.currentParams && window.app.currentParams[0]) {
+               const sessionId = window.app.currentParams[0];
+               console.log(`🔗 Deep linking to session: ${sessionId}`);
+
+               // Try to find and click the session in the list
+               setTimeout(() => {
+                  const item = document.querySelector(`.conversation-item[data-conversation-id="${sessionId}"]`);
+                  if (item) {
+                     item.click();
+                  } else {
+                     console.warn(`Session ${sessionId} not found in the first 50 items`);
+                     // Fallback: manually trigger load for this specific ID if needed
+                     this.loadConversationMessages(sessionId);
+                  }
+               }, 300);
+            }
          } else {
             const list = document.getElementById('conversations-list');
             if (list) {
@@ -174,21 +192,29 @@ class Conversations {
          }
 
          const timeStr = startTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-         const initials = conv.userId ? conv.userId.substring(0, 2).toUpperCase() : '#' + (idx + 1);
+         const dateShort = startTime.toLocaleDateString([], { month: 'short', day: 'numeric' });
          const statusIndicator = conv.status === 'active' ? 'bg-[#27ae60]' : conv.status === 'escalated' ? 'bg-[#E5A000]' : 'bg-gray-300';
+
+         // Priority: 1. Manual Title, 2. Created at timestamp, 3. ID segment
+         let title = conv.title;
+         if (!title || title === `Visitor ${conv.id.substring(0, 4)}`) {
+            title = `Chat - ${dateShort} at ${timeStr}`;
+         }
+
+         const avatarUrl = conv.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${conv.id}`;
 
          return `
             <div class="group flex items-start gap-4 p-4 rounded-l-2xl rounded-r-none hover:bg-gray-50 cursor-pointer border-transparent transition-all relative overflow-hidden mr-0 conversation-item" data-conversation-id="${conv.id}">
                <div class="relative">
-                 <div class="w-10 h-10 rounded-full bg-gray-50 border border-gray-200 flex items-center justify-center text-xs font-bold text-gray-600">
-                   ${initials}
+                 <div class="w-11 h-11 rounded-full bg-gray-50 border border-gray-200 flex items-center justify-center text-xs font-bold text-gray-600 overflow-hidden shrink-0">
+                    <img src="${avatarUrl}" alt="${title}" class="w-full h-full object-cover">
                  </div>
-                 <div class="absolute -bottom-0.5 -right-0.5 w-3 h-3 ${statusIndicator} rounded-full border-2 border-white"></div>
+                 <div class="absolute bottom-0 right-0 w-3 h-3 ${statusIndicator} rounded-full border-2 border-white"></div>
                </div>
                <div class="flex-1 min-w-0 pr-4">
-                 <div class="flex justify-between items-baseline mb-1">
-                   <h3 class="text-[14px] font-bold text-gray-900 font-mono">${conv.id.substring(0, 8)}</h3>
-                   <span class="text-[12px] text-gray-500 font-medium">${timeStr}</span>
+                 <div class="flex justify-between items-baseline mb-0.5">
+                   <h3 class="text-[14px] font-bold text-gray-900 truncate pr-2">${this.escapeHtml(title)}</h3>
+                   <span class="text-[11px] text-gray-500 font-medium shrink-0">${timeStr}</span>
                  </div>
                  <p class="text-[13px] text-gray-500 truncate leading-relaxed">${this.escapeHtml(conv.lastMessage || (conv.messages && conv.messages.length > 0 ? conv.messages[conv.messages.length - 1].content : 'No messages'))}</p>
                </div>
@@ -226,6 +252,7 @@ class Conversations {
             if (titleEl) titleEl.textContent = titleText;
 
             // Load conversation messages
+            this.currentConversationId = conversationId;
             await this.loadConversationMessages(conversationId);
 
             if (isMobile()) {
@@ -312,6 +339,8 @@ class Conversations {
 
    static renderMessages(messages) {
       const messagesContainer = document.getElementById('conversation-messages');
+      const currentConv = this.allConversations.find(c => c.id === this.currentConversationId);
+      const userAvatar = currentConv ? (currentConv.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${this.currentConversationId}`) : `https://api.dicebear.com/7.x/avataaars/svg?seed=default`;
 
       const html = messages.map(msg => {
          const timestamp = new Date(msg.timestamp).toLocaleTimeString([], {
@@ -321,10 +350,15 @@ class Conversations {
 
          if (msg.sender === 'user') {
             return `
-               <div class="flex justify-end mb-8">
-                  <div class="bg-gray-100 rounded-2xl rounded-tr-sm px-6 py-4 max-w-[80%]">
-                     <p class="text-[15px] text-gray-800 leading-relaxed font-medium">${this.escapeHtml(msg.content)}</p>
-                     <p class="text-[11px] text-gray-500 mt-1">${timestamp}</p>
+               <div class="flex justify-end gap-4 mb-8">
+                  <div class="flex-1 flex flex-col items-end">
+                     <div class="bg-gray-100 rounded-2xl rounded-tr-sm px-6 py-4 max-w-[90%]">
+                        <p class="text-[15px] text-gray-800 leading-relaxed font-medium">${this.escapeHtml(msg.content)}</p>
+                        <p class="text-[11px] text-gray-500 mt-1">${timestamp}</p>
+                     </div>
+                  </div>
+                  <div class="w-10 h-10 rounded-full bg-gray-50 border border-gray-200 flex items-center justify-center flex-shrink-0 overflow-hidden shadow-sm">
+                     <img src="${userAvatar}" alt="User" class="w-full h-full object-cover">
                   </div>
                </div>
             `;

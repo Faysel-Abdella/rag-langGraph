@@ -10,7 +10,7 @@ class AdminApp {
             console.warn('⚠️ API Service not initialized, creating now...');
             window.apiService = new APIService();
         }
-        
+
         // Run auth check before anything else
         if (this.checkAuth()) {
             this.init();
@@ -23,14 +23,14 @@ class AdminApp {
      */
     checkAuth() {
         const token = sessionStorage.getItem('authToken');
-        
+
         // If no token exists, redirect to login page
         if (!token) {
             console.warn('Unauthorized access attempt. Redirecting to login...');
             window.location.href = 'login.html';
             return false;
         }
-        
+
         // Optional: You could add logic here to decode the JWT and check expiry
         return true;
     }
@@ -39,14 +39,38 @@ class AdminApp {
         // Render Layout Components
         this.renderLayout();
 
-        // Setup Navigation Listeners
+        // Setup Navigation Listeners (Sidebar clicks)
         this.setupNavigation();
+
+        // Setup Hash Routing
+        window.addEventListener('hashchange', () => this.handleRouting());
+
+        // Initial Routing
+        if (window.location.hash && window.location.hash !== '#') {
+            this.handleRouting();
+        } else {
+            // Default view
+            window.location.hash = 'conversations';
+        }
 
         // Setup Mobile Menu
         this.setupMobileMenu();
+    }
 
-        // Load Default Section (Conversations)
-        this.loadSection('conversations');
+    handleRouting() {
+        const hash = window.location.hash.substring(1); // Remove #
+        const [section, ...params] = hash.split('/');
+
+        // Update Sidebar highlighting
+        document.querySelectorAll('.nav-item').forEach(el => {
+            if (el.dataset.page === section) {
+                el.classList.add('active');
+            } else {
+                el.classList.remove('active');
+            }
+        });
+
+        this.loadSection(section, params);
     }
 
     renderLayout() {
@@ -87,15 +111,7 @@ class AdminApp {
             if (navItem) {
                 e.preventDefault();
                 const page = navItem.dataset.page;
-
-                // Update Active State
-                document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
-                navItem.classList.add('active');
-
-                // Load Section
-                this.loadSection(page);
-
-                // Close mobile menu after navigation
+                window.location.hash = page;
                 this.closeMobileMenu();
             }
         });
@@ -138,9 +154,12 @@ class AdminApp {
         if (overlay) overlay.classList.remove('open');
     }
 
-    loadSection(sectionName) {
+    loadSection(sectionName, params = []) {
         const contentContainer = document.getElementById('content-container');
         if (!contentContainer) return;
+
+        // Store current params globally so sections can access them if needed during afterRender
+        this.currentParams = params;
 
         let ComponentClass = null;
 
