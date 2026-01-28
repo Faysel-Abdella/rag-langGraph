@@ -46,10 +46,10 @@ class KnowledgeBase {
                      <span class="w-2 h-2 rounded-full bg-gray-300"></span>
                      All Types
                   </button>
-                  <button class="w-full px-4 py-2.5 text-left text-[13px] text-gray-700 hover:bg-gray-50 flex items-center gap-2 transition-colors" data-sort="pdf">
-                     <span class="w-2 h-2 rounded-full bg-[#8B5CF6]"></span>
-                     PDF Files
-                  </button>
+                   <button class="w-full px-4 py-2.5 text-left text-[13px] text-gray-700 hover:bg-gray-50 flex items-center gap-2 transition-colors" data-sort="docx">
+                      <span class="w-2 h-2 rounded-full bg-[#F59E0B]"></span>
+                      DOCX Files
+                   </button>
                   <button class="w-full px-4 py-2.5 text-left text-[13px] text-gray-700 hover:bg-gray-50 flex items-center gap-2 transition-colors" data-sort="csv">
                      <span class="w-2 h-2 rounded-full bg-[#10B981]"></span>
                      CSV Files
@@ -167,6 +167,7 @@ class KnowledgeBase {
          'manual': 'bg-blue-100 text-blue-700',
          'csv': 'bg-green-100 text-green-700',
          'pdf': 'bg-purple-100 text-purple-700',
+         'docx': 'bg-orange-100 text-orange-700',
       };
       return classes[type] || 'bg-gray-100 text-gray-700';
    }
@@ -175,7 +176,8 @@ class KnowledgeBase {
       const types = {
          'manual': 'Manual',
          'csv': 'CSV',
-         'pdf': 'PDF'
+         'pdf': 'PDF',
+         'docx': 'DOCX'
       };
       return types[type] || type;
    }
@@ -293,7 +295,7 @@ class KnowledgeBase {
 
       // Find the item to check its type
       const item = this.allDocuments.find(k => String(k.id) === String(itemId));
-      const isPdf = item && item.type === 'pdf';
+      const isDocument = item && (item.type === 'pdf' || item.type === 'docx');
 
       const menu = document.createElement('div');
       menu.className = 'kb-context-menu absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-xl border border-gray-200 py-1 z-50';
@@ -301,8 +303,8 @@ class KnowledgeBase {
       // Build menu HTML based on type
       let menuHtml = '';
 
-      if (isPdf) {
-         // For PDFs: show only delete (no edit or download)
+      if (isDocument) {
+         // For Documents: show only delete (no edit or download)
          menuHtml = `
             <button class="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2" data-action="delete">
                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -491,7 +493,7 @@ class KnowledgeBase {
       if (labelEl) {
          const labels = {
             'all': 'All',
-            'pdf': 'PDF',
+            'docx': 'DOCX',
             'csv': 'CSV',
             'manual': 'Manual'
          };
@@ -579,34 +581,31 @@ class KnowledgeBase {
                           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
                              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
                              <polyline points="14 2 14 8 20 8"></polyline>
-                             <line x1="16" y1="13" x2="8" y2="13"></line>
-                             <line x1="16" y1="17" x2="8" y2="17"></line>
+                             <path d="M14 2L14 8L20 8" stroke-linecap="round" stroke-linejoin="round"/>
                           </svg>
                        </div>
                        <div>
-                          <p class="text-[14px] font-bold text-gray-900">Import .PDF files</p>
-                          <p class="text-[12px] text-gray-500">Upload PDF documents for semantic search</p>
+                          <p class="text-[14px] font-bold text-gray-900">Import .DOCX files</p>
+                          <p class="text-[12px] text-gray-500">Upload Word documents for semantic search</p>
                        </div>
                     </button>
                  </div>
               </div>
 
-              <div id="modal-view-pdf" class="hidden">
+                  <div id="modal-view-pdf" class="hidden">
                  <div class="mb-6">
                     <div class="w-10 h-10 rounded-lg border border-gray-200 flex items-center justify-center mb-4 text-gray-600">
                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
                           <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
                           <polyline points="14 2 14 8 20 8"></polyline>
-                          <line x1="16" y1="13" x2="8" y2="13"></line>
-                          <line x1="16" y1="17" x2="8" y2="17"></line>
                        </svg>
                     </div>
-                    <h3 class="text-[20px] font-bold text-gray-900 mb-1">Import PDF Document</h3>
-                    <p class="text-[14px] text-gray-500">Upload a PDF file. Any format is supported - no Q&A structure required.</p>
+                    <h3 class="text-[20px] font-bold text-gray-900 mb-1">Import DOCX Document</h3>
+                    <p class="text-[14px] text-gray-500">Upload a DOCX file. The text will be extracted and chunked for RAG indexing.</p>
                  </div>
 
                  <div id="pdf-upload-area" class="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center hover:border-[#E5A000] transition-colors cursor-pointer bg-gray-50">
-                    <input type="file" id="pdf-file-input" accept=".pdf" class="hidden">
+                    <input type="file" id="pdf-file-input" accept=".docx,.doc" class="hidden">
                     <div class="flex flex-col items-center">
                        <div class="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mb-4">
                           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="text-gray-500">
@@ -616,7 +615,7 @@ class KnowledgeBase {
                           </svg>
                        </div>
                        <p class="text-[15px] font-semibold text-gray-900 mb-1">Click to upload or drag and drop</p>
-                       <p class="text-[13px] text-gray-500">PDF files only</p>
+                       <p class="text-[13px] text-gray-500">DOCX files only</p>
                     </div>
                  </div>
 
@@ -660,7 +659,7 @@ class KnowledgeBase {
 
                  <div class="mt-6 flex gap-3">
                     <button id="pdf-cancel-btn" class="flex-1 px-4 py-2.5 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 font-semibold transition-colors text-[14px]">Cancel</button>
-                    <button id="btn-pdf-upload" disabled class="flex-1 px-4 py-2.5 bg-[#E5A000] hover:bg-[#D49000] disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg font-semibold transition-colors text-[14px]">Upload PDF</button>
+                    <button id="btn-pdf-upload" disabled class="flex-1 px-4 py-2.5 bg-[#E5A000] hover:bg-[#D49000] disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg font-semibold transition-colors text-[14px]">Upload DOCX</button>
                  </div>
               </div>
 
@@ -933,14 +932,14 @@ class KnowledgeBase {
       };
 
       const handlePdfFileSelect = (file) => {
-         if (!file || !file.name.endsWith('.pdf')) {
-            this.showToast('Please select a valid PDF file', 'error');
+         if (!file || !(file.name.endsWith('.docx') || file.name.endsWith('.doc'))) {
+            this.showToast('Please select a valid DOCX or DOC file', 'error');
             return;
          }
 
          selectedPdfFile = file;
          pdfFileName.textContent = file.name;
-         pdfFileSize.textContent = `${(file.size / 1024 / 1024).toFixed(2)} MB`;
+         pdfFileSize.textContent = `${(file.size / 1024).toFixed(2)} KB`;
          pdfFilePreview.classList.remove('hidden');
          btnPdfUpload.disabled = false;
       };
@@ -1087,7 +1086,7 @@ class KnowledgeBase {
                   pdfProgressBar.style.width = '60%';
                   pdfProgressPercent.textContent = '60%';
 
-                  const response = await fetch('/api/knowledge/upload/pdf', {
+                  const response = await fetch('/api/knowledge/upload/docx', {
                      method: 'POST',
                      headers: { 'Content-Type': 'application/json' },
                      body: JSON.stringify({
@@ -1110,25 +1109,25 @@ class KnowledgeBase {
 
                   setTimeout(() => {
                      closeModal();
-                     this.showToast('PDF uploaded successfully', 'success');
+                     this.showToast('Document uploaded successfully and queued for processing', 'success');
                      this.loadDocuments();
                   }, 500);
 
                } catch (error) {
-                  console.error('PDF upload failed:', error);
-                  this.showToast(error.message || 'Failed to upload PDF', 'error');
+                  console.error('Docx upload failed:', error);
+                  this.showToast(error.message || 'Failed to upload document', 'error');
                   btnPdfUpload.disabled = false;
-                  btnPdfUpload.textContent = 'Upload PDF';
+                  btnPdfUpload.textContent = 'Upload DOCX';
                   pdfUploadProgress.classList.add('hidden');
                }
             };
             reader.readAsDataURL(selectedPdfFile);
 
          } catch (error) {
-            console.error('PDF upload error:', error);
-            this.showToast(error.message || 'Failed to upload PDF', 'error');
+            console.error('Docx upload error:', error);
+            this.showToast(error.message || 'Failed to upload document', 'error');
             btnPdfUpload.disabled = false;
-            btnPdfUpload.textContent = 'Upload PDF';
+            btnPdfUpload.textContent = 'Upload DOCX';
             pdfUploadProgress.classList.add('hidden');
          }
       };

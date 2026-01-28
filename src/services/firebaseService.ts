@@ -10,14 +10,15 @@ import { getFirestore } from 'firebase-admin/firestore';
 
 interface KnowledgeMetadata {
   id: string;
-  ragFileId: string; // ID from Vertex AI RAG
+  ragFileId: string; // ID from Vertex AI RAG (for single file or representative file)
+  ragFileIds?: string[]; // IDs from Vertex AI RAG (for multiple chunks)
   question: string;
   answer: string;
   type: 'manual' | 'csv' | 'pdf' | 'docx';
   status: 'PROCESSING' | 'COMPLETED' | 'FAILED';
   createdAt: string;
   updatedAt: string;
-  fileUrl?: string; // For PDF files stored in Firebase Storage
+  fileUrl?: string; // For original files stored in Firebase Storage
 }
 
 export interface Escalation {
@@ -676,7 +677,7 @@ class FirebaseService {
       // Note: Full-text search in Firestore is limited. 
       // For simple search, we'll fetch then filter or just do simple prefix if possible.
       // But for this requirement, we'll apply prefix search on 'user' or just fetch all and filter in memory if they are not too many.
-      // Since we need pagination, searching in Firestore is better.
+      // Sinc // No longer using local cachee we need pagination, searching in Firestore is better.
       // However, Firestore doesn't support multiple OR conditions across different fields easily without composite indexes or external search.
 
       // Let's stick to status filter for now and maybe handle search by fetching more or if it's user email.
