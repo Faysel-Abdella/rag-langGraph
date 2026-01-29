@@ -1,11 +1,13 @@
-/**
- * Authentication Routes
- * Backend-based admin authentication using Firebase Auth
- */
-
+import axios from 'axios';
 import { Request, Response, Router } from 'express';
+import admin from 'firebase-admin';
+import emailService from '../services/emailService';
+import firebaseService from '../services/firebaseService';
 
 const router = Router();
+
+const FIREBASE_AUTH_URL = 'https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword';
+const API_KEY = process.env.FIREBASE_API_KEY;
 
 /**
  * POST /api/auth/login
@@ -31,6 +33,7 @@ const router = Router();
 router.post('/api/auth/login', async (req: Request, res: Response): Promise<void> => {
   try {
     const { email, password } = req.body;
+    const cleanApiKey = API_KEY?.trim()?.replace(/['"]/g, ''); // Remove quotes or spaces
 
     if (!email || !password) {
       (res as any).status(400).json({
@@ -40,58 +43,155 @@ router.post('/api/auth/login', async (req: Request, res: Response): Promise<void
       return;
     }
 
-    // ============================================
-    // SIMPLE AUTHENTICATION
-    // For demo/development: hardcoded admin credentials
-    // In production: Replace with proper user database
-    // ============================================
-    const validCredentials = [
-      { email: 'admin@example.com', password: 'admin1234' },
-      { email: 'admin@chatbot.com', password: 'password123' },
-    ];
-
-    const isValidUser = validCredentials.some(
-      (cred) => cred.email === email && cred.password === password
-    );
-
-    if (!isValidUser) {
-      console.log(`❌ Login attempt failed for ${email}`);
-      (res as any).status(401).json({
+    if (!cleanApiKey) {
+      console.error('❌ FIREBASE_API_KEY is empty or missing in .env');
+      (res as any).status(500).json({
         success: false,
-        error: 'Invalid email or password',
+        error: 'Authentication service not configured (Missing API Key)',
       });
       return;
     }
 
-    // ============================================
-    // Generate a simple JWT-like token (for demo)
-    // In production: Use proper JWT signing with secret key
-    // ============================================
-    const token = Buffer.from(
-      JSON.stringify({
-        email,
-        role: 'admin',
-        iat: Date.now(),
-        exp: Date.now() + 24 * 60 * 60 * 1000, // 24 hours
-      })
-    ).toString('base64');
+    console.log(`🔑 Attempting login with API Key (start): ${cleanApiKey.substring(0, 5)}...`);
 
-    console.log(`✅ Login successful for ${email}`);
+    // Call Firebase Auth REST API
+    try {
+      const response = await axios.post(`${FIREBASE_AUTH_URL}?key=${cleanApiKey}`, {
+        email,
+        password,
+        returnSecureToken: true
+      });
+
+      const { idToken, refreshToken, localId, email: userEmail } = response.data;
+
+      console.log(`✅ Login successful for ${email}`);
+
+      (res as any).json({
+        success: true,
+        token: idToken,
+        refreshToken: refreshToken,
+        user: {
+          uid: localId,
+          email: userEmail,
+          role: 'admin',
+        },
+      });
+    } catch (fireError: any) {
+      const fbError = fireError.response?.data?.error?.message || 'Login failed';
+      console.error(`❌ Login attempt failed for ${email}: ${fbError}`);
+
+      let errorMsg = 'Invalid email or password';
+      if (fbError === 'EMAIL_NOT_FOUND' || fbError === 'INVALID_PASSWORD') {
+        errorMsg = 'Invalid email or password';
+      } else if (fbError === 'USER_DISABLED') {
+        errorMsg = 'This account has been disabled';
+      } else if (fbError === 'TOO_MANY_ATTEMPTS_TRY_LATER') {
+        errorMsg = 'Too many failed attempts. Please try again later.';
+      }
+
+      (res as any).status(401).json({
+        success: false,
+        error: errorMsg,
+      });
+    }
+  } catch (error: any) {
+    console.error('Login router error:', error);
+    (res as any).status(500).json({
+      success: false,
+      error: 'An internal error occurred during login',
+    });
+  }
+});
+
+/**
+ * POST /api/auth/forgot-password
+ * Trigger a password reset email via Admin SDK
+ */
+router.post('/api/auth/forgot-password', async (req: Request, res: Response): Promise<void> => {
+  const { email } = req.body;
+
+  if (!email) {
+    (res as any).status(400).json({ success: false, error: 'Email is required' });
+    return;
+  }
+
+  try {
+    // 1. Verify service is initialized
+    if (!firebaseService.isInitialized()) {
+      await firebaseService.initialize();
+    }
+
+    // 2. Generate Reset Link via Firebase Admin
+    const resetLink = await admin.auth().generatePasswordResetLink(email, {
+      // Optional: Redirect back to login after reset
+      url: `${process.env.APP_URL || 'http://localhost:3000'}/admin/login`
+    });
+
+    // 3. Send email via our EmailService
+    const sent = await emailService.sendPasswordResetEmail(email, resetLink);
+
+    if (sent) {
+      (res as any).json({
+        success: true,
+        message: 'If an account exists for this email, you will receive a reset link shortly.'
+      });
+    } else {
+      throw new Error('Failed to send email');
+    }
+  } catch (error: any) {
+    console.error('Forgot password error:', error);
+    // Safety: Always return success message to avoid email enumeration
+    (res as any).json({
+      success: true,
+      message: 'If an account exists for this email, you will receive a reset link shortly.'
+    });
+  }
+});
+
+/**
+ * POST /api/auth/refresh-token
+ * Exchange a refreshToken for a new idToken
+ */
+router.post('/api/auth/refresh-token', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { refreshToken } = req.body;
+    const cleanApiKey = API_KEY?.trim()?.replace(/['"]/g, '');
+
+    if (!refreshToken) {
+      (res as any).status(400).json({ success: false, error: 'Refresh token required' });
+      return;
+    }
+
+    const refreshUrl = `https://securetoken.googleapis.com/v1/token?key=${cleanApiKey}`;
+
+    const response = await axios.post(refreshUrl, {
+      grant_type: 'refresh_token',
+      refresh_token: refreshToken
+    });
+
+    // Firebase returns { access_token, expires_in, refresh_token, token_type, user_id, project_id }
+    const { access_token, refresh_token, expires_in, user_id } = response.data;
+
+    // Get real user info from Admin SDK to ensure email is current
+    const userRecord = await admin.auth().getUser(user_id);
 
     (res as any).json({
       success: true,
-      token,
+      token: access_token,
+      refreshToken: refresh_token,
+      expiresIn: expires_in,
       user: {
-        uid: email,
-        email,
-        role: 'admin',
-      },
+        uid: user_id,
+        email: userRecord.email,
+        role: 'admin'
+      }
     });
+
   } catch (error: any) {
-    console.error('Login error:', error);
-    (res as any).status(500).json({
+    console.error('Refresh token error:', error.response?.data || error.message);
+    (res as any).status(401).json({
       success: false,
-      error: 'Login failed: ' + error.message,
+      error: 'Session expired. Please login again.'
     });
   }
 });

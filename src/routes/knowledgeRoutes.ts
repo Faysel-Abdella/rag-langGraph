@@ -5,6 +5,7 @@
 
 import { Router } from 'express';
 import {
+  batchDeleteKnowledge,
   createKnowledge,
   deleteKnowledge,
   getAllKnowledge,
@@ -12,7 +13,7 @@ import {
   getKnowledgeStats,
   updateKnowledge,
   uploadCSV,
-  uploadPDF,
+  uploadDocx
 } from '../controllers/knowledgeController';
 
 const router = Router();
@@ -35,11 +36,15 @@ router.put('/api/knowledge/:id', updateKnowledge);
 // Delete knowledge item
 router.delete('/api/knowledge/:id', deleteKnowledge);
 
+// Batch delete
+router.post('/api/knowledge/batch-delete', batchDeleteKnowledge);
+
 // Upload CSV
 router.post('/api/knowledge/upload/csv', uploadCSV);
 
-// Upload PDF
-router.post('/api/knowledge/upload/pdf', uploadPDF);
+// Upload Docx (replaces PDF)
+router.post('/api/knowledge/upload/docx', uploadDocx);
+router.post('/api/knowledge/upload/pdf', uploadDocx); // Keep legacy route for frontend compatibility for now
 
 // Debug: Check RAG status
 router.get('/api/knowledge/debug/rag-status', async (req: any, res: any) => {
@@ -47,13 +52,23 @@ router.get('/api/knowledge/debug/rag-status', async (req: any, res: any) => {
     const vertexAIRag = await import('../services/vertexAIRagService').then(m => m.default);
     const isInitialized = vertexAIRag.isInitialized?.();
     const config = vertexAIRag.getConfig?.();
-    
+    let corpusStatus = null;
+
+    if (isInitialized) {
+      try {
+        corpusStatus = await vertexAIRag.getCorpusStatus();
+      } catch (e: any) {
+        corpusStatus = { error: e.message };
+      }
+    }
+
     res.json({
       success: true,
       initialized: isInitialized,
       config: config,
-      message: isInitialized 
-        ? 'GCP Vertex AI RAG is initialized and ready' 
+      corpusStatus: corpusStatus,
+      message: isInitialized
+        ? 'GCP Vertex AI RAG is initialized and ready'
         : 'GCP Vertex AI RAG is NOT initialized - check logs',
     });
   } catch (error: any) {

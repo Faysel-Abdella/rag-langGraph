@@ -23,7 +23,7 @@ class BackgroundTaskService {
    */
   queueTask(type: TaskType, knowledgeId: string, data: any): string {
     const taskId = `task_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    
+
     const task: BackgroundTask = {
       id: taskId,
       type,
@@ -49,9 +49,9 @@ class BackgroundTaskService {
    */
   private async processQueue(): Promise<void> {
     if (this.processing) return;
-    
+
     this.processing = true;
-    
+
     while (this.tasks.size > 0) {
       // Get the first pending task
       let task: BackgroundTask | undefined;
@@ -99,31 +99,40 @@ class BackgroundTaskService {
    * Handle RAG upload in background
    */
   private async handleUploadRag(task: BackgroundTask): Promise<void> {
-    const { tempFilePath, displayName, description, knowledgeData } = task.data;
+    const { tempFilePaths, tempFilePath, displayName, description } = task.data;
+    const paths = tempFilePaths || (tempFilePath ? [tempFilePath] : []);
 
     try {
-      // Upload to RAG
-      const ragFile = await vertexAIRag.uploadFile(
-        tempFilePath,
-        displayName,
-        description
-      );
+      const ragFileIds: string[] = [];
 
-      // Update Firebase with RAG file ID
+      for (const filePath of paths) {
+        // Upload to RAG
+        const ragFile = await vertexAIRag.uploadFile(
+          filePath,
+          displayName,
+          description
+        );
+        ragFileIds.push(ragFile.name);
+      }
+
+      // Update Firebase with RAG file IDs
       await firebaseService.updateKnowledge(task.knowledgeId, {
-        ragFileId: ragFile.name,
+        ragFileId: ragFileIds[0] || '', // Still keep primary ID for backward compatibility
+        ragFileIds: ragFileIds,
         status: 'COMPLETED',
       });
 
-      console.log(`✅ RAG Upload completed for ${task.knowledgeId}: ${ragFile.name}`);
+      console.log(`✅ RAG Upload completed for ${task.knowledgeId}: ${ragFileIds.length} chunks`);
     } finally {
-      // Clean up temp file
-      try {
-        if (fs.existsSync(tempFilePath)) {
-          fs.unlinkSync(tempFilePath);
+      // Clean up temp files
+      for (const filePath of paths) {
+        try {
+          if (fs.existsSync(filePath)) {
+            fs.unlinkSync(filePath);
+          }
+        } catch (e) {
+          console.warn('Could not delete temp file:', e);
         }
-      } catch (e) {
-        console.warn('Could not delete temp file:', e);
       }
     }
   }
@@ -132,11 +141,14 @@ class BackgroundTaskService {
    * Handle RAG deletion in background
    */
   private async handleDeleteRag(task: BackgroundTask): Promise<void> {
-    const { ragFileId } = task.data;
+    const { ragFileId, ragFileIds } = task.data;
+    const idsToDelete = ragFileIds || (ragFileId ? [ragFileId] : []);
 
-    if (ragFileId) {
-      await vertexAIRag.deleteFile(ragFileId);
-      console.log(`✅ RAG Delete completed for file: ${ragFileId}`);
+    for (const id of idsToDelete) {
+      if (id) {
+        await vertexAIRag.deleteFile(id);
+        console.log(`✅ RAG Delete completed for file: ${id}`);
+      }
     }
   }
 

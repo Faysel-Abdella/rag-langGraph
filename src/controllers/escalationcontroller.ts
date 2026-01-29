@@ -49,28 +49,28 @@ export class EscalationController {
    * scalations
    * Manually create an escalation (optional, mostly handled by ChatController)
    */
-  static async createEscalation(req: Request, res: Response): Promise<void> {
-    try {
-      const { user, question, reason } = req.body;
+  // static async createEscalation(req: Request, res: Response): Promise<void> {
+  //   try {
+  //     const { user, question, reason } = req.body;
 
-      if (!user || !question) {
-        res.status(400).json({ success: false, error: 'Missing required fields' });
-        return;
-      }
+  //     if (!user || !question) {
+  //       res.status(400).json({ success: false, error: 'Missing required fields' });
+  //       return;
+  //     }
 
-      const id = await firebaseService.createEscalation({
-        user,
-        question,
-        reason: reason || 'Manual Entry',
-        status: 'open'
-      });
+  //     const id = await firebaseService.createEscalation({
+  //       user,
+  //       question,
+  //       reason: reason || 'Manual Entry',
+  //       status: 'open'
+  //     });
 
-      res.json({ success: true, id });
-    } catch (error) {
-      console.error('Error creating escalation:', error);
-      res.status(500).json({ success: false, error: 'Failed to create escalation' });
-    }
-  }
+  //     res.json({ success: true, id });
+  //   } catch (error) {
+  //     console.error('Error creating escalation:', error);
+  //     res.status(500).json({ success: false, error: 'Failed to create escalation' });
+  //   }
+  // }
   /**
    * DELETE /api/escalations/:id
    * Delete an escalation ticket
@@ -105,6 +105,27 @@ export class EscalationController {
     } catch (error) {
       console.error('Error updating status:', error);
       res.status(500).json({ success: false, error: 'Failed to update status' });
+    }
+  }
+
+  /**
+   * POST /api/escalations/batch-delete
+   */
+  static async batchDelete(req: Request, res: Response): Promise<void> {
+    try {
+      const { ids } = req.body;
+      if (!Array.isArray(ids) || ids.length === 0) {
+        res.status(400).json({ success: false, error: 'No IDs provided' });
+        return;
+      }
+
+      for (const id of ids) {
+        await firebaseService.deleteEscalation(id);
+      }
+
+      res.json({ success: true, message: `Deleted ${ids.length} escalations` });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: 'Failed to delete escalations' });
     }
   }
 }

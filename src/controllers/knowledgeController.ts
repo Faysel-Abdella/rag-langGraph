@@ -9,6 +9,7 @@
 
 import { type Request, type Response } from 'express';
 import fs from 'fs';
+import mammoth from 'mammoth';
 import path from 'path';
 import backgroundTaskService from '../services/backgroundTaskService';
 import firebaseService from '../services/firebaseService';
@@ -16,6 +17,48 @@ import vertexAIRag from '../services/vertexAIRagService';
 
 // Temporary file directory for uploads
 const RAG_TEMP_DIR = path.join(process.cwd(), '.rag-temp');
+
+/**
+ * Helper to chunk text into manageable segments
+ */
+function chunkText(text: string, maxChunkSize: number = 4000): string[] {
+  if (!text) return [];
+
+  const chunks: string[] = [];
+  let currentChunk = "";
+
+  // Split by paragraphs first to avoid breaking sentences/paragraphs if possible
+  const sections = text.split(/\n\s*\n/);
+
+  for (const section of sections) {
+    if ((currentChunk.length + section.length) > maxChunkSize) {
+      if (currentChunk.length > 0) {
+        chunks.push(currentChunk.trim());
+        currentChunk = "";
+      }
+
+      // If a single section is larger than maxChunkSize, split it by sentences or characters
+      if (section.length > maxChunkSize) {
+        let remaining = section;
+        while (remaining.length > maxChunkSize) {
+          chunks.push(remaining.substring(0, maxChunkSize).trim());
+          remaining = remaining.substring(maxChunkSize);
+        }
+        currentChunk = remaining;
+      } else {
+        currentChunk = section;
+      }
+    } else {
+      currentChunk += (currentChunk ? "\n\n" : "") + section;
+    }
+  }
+
+  if (currentChunk.trim().length > 0) {
+    chunks.push(currentChunk.trim());
+  }
+
+  return chunks;
+}
 
 /**
  * Ensure temp directory exists
@@ -255,13 +298,13 @@ export const deleteKnowledge = async (req: Request, res: Response): Promise<void
       await firebaseService.deleteKnowledge(id);
       console.log(`✅ Deleted from Firebase`);
 
-      // Delete PDF file from Firebase Storage if it's a PDF
-      if (knowledge.type === 'pdf') {
+      // Delete Docx/PDF file from Firebase Storage if it's that type
+      if (knowledge.type === 'pdf' || knowledge.type === 'docx') {
         try {
-          await firebaseService.deletePdfFile(id);
-          console.log(`✅ Deleted PDF file from Storage`);
+          await firebaseService.deletePdfFile(id); // Reusing the same service method for both
+          console.log(`✅ Deleted ${knowledge.type} file from Storage`);
         } catch (error: any) {
-          console.warn('⚠️  Could not delete PDF file:', error.message);
+          console.warn(`⚠️  Could not delete ${knowledge.type} file:`, error.message);
         }
       }
     } catch (error: any) {
@@ -270,8 +313,13 @@ export const deleteKnowledge = async (req: Request, res: Response): Promise<void
       return;
     }
 
-    // Queue RAG deletion in background if we have a RAG file ID
-    if (knowledge.ragFileId) {
+    // Queue RAG deletion in background if we have RAG file IDs
+    if (knowledge.ragFileIds && knowledge.ragFileIds.length > 0) {
+      backgroundTaskService.queueTask('DELETE_RAG', id, {
+        ragFileIds: knowledge.ragFileIds,
+      });
+      console.log(`📋 Queued RAG deletion for ${knowledge.ragFileIds.length} chunks`);
+    } else if (knowledge.ragFileId) {
       backgroundTaskService.queueTask('DELETE_RAG', id, {
         ragFileId: knowledge.ragFileId,
       });
@@ -362,11 +410,11 @@ export const uploadCSV = async (req: Request, res: Response): Promise<void> => {
 };
 
 /**
- * POST /api/knowledge/upload/pdf
- * Upload a PDF file - stores it as-is without requiring Q&A format
+ * POST /api/knowledge/upload/docx
+ * Upload a DOCX/DOC file - extracts text, chunks it, and uploads as text files
  * Saves to both Vertex AI RAG and Firebase Firestore + Storage
  */
-export const uploadPDF = async (req: Request, res: Response): Promise<void> => {
+export const uploadDocx = async (req: Request, res: Response): Promise<void> => {
   try {
     const { filename, content, title, description } = req.body;
 
@@ -378,68 +426,145 @@ export const uploadPDF = async (req: Request, res: Response): Promise<void> => {
     ensureTempDir();
 
     try {
-      // Create temporary file with base64 content
-      const tempFile = path.join(RAG_TEMP_DIR, `pdf_${Date.now()}_${filename}`);
+      // 1. Convert base64 to buffer
       const buffer = Buffer.from(content, 'base64');
-      fs.writeFileSync(tempFile, buffer);
 
-      // 1. Save metadata to Firebase Firestore first (to get ID)
+      // 2. Save original file to temp for extraction
+      const tempDocxPath = path.join(RAG_TEMP_DIR, `origin_${Date.now()}_${filename}`);
+      fs.writeFileSync(tempDocxPath, buffer);
+
+      // 3. Extract text using mammoth
+      let extractedText = "";
+      try {
+        const result = await mammoth.extractRawText({ path: tempDocxPath });
+        extractedText = result.value;
+        console.log(`📄 Extracted ${extractedText.length} characters from docx`);
+      } catch (extractError) {
+        console.error('❌ Mammoth extraction failed:', extractError);
+        throw new Error('Failed to extract text from document. Make sure it is a valid .docx file.');
+      }
+
+      // 4. Chunk text
+      const chunks = chunkText(extractedText);
+      console.log(`📦 Split text into ${chunks.length} chunks`);
+
+      // 5. Save metadata to Firebase Firestore first (to get ID)
       const knowledge = await firebaseService.saveKnowledge({
-        ragFileId: '', // Will be populated by background task
+        ragFileId: '',
+        ragFileIds: [],
         question: title || filename,
-        answer: description || `PDF: ${filename}`,
-        type: 'pdf',
+        answer: description || (extractedText.substring(0, 500) + (extractedText.length > 500 ? '...' : '')),
+        type: 'docx',
         status: 'PROCESSING',
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       });
 
-      // 2. Upload PDF to Firebase Storage
+      // 6. Upload original file to Firebase Storage (for reference/download)
       let fileUrl = '';
       try {
         fileUrl = await firebaseService.uploadPdfFile(buffer, filename, knowledge.id);
-        console.log(`✅ PDF uploaded to Firebase Storage: ${fileUrl}`);
+        console.log(`✅ Original file uploaded to Firebase Storage: ${fileUrl}`);
       } catch (storageError: any) {
         console.error('❌ Failed to upload to Firebase Storage:', storageError.message);
-        console.error('Storage error details:', storageError);
       }
 
-      // 3. Update knowledge metadata with file URL
-      console.log(`Updating knowledge ${knowledge.id} with fileUrl: ${fileUrl}`);
+      // 7. Update knowledge metadata with file URL
       if (fileUrl) {
         await firebaseService.updateKnowledge(knowledge.id, {
           fileUrl,
         });
-        console.log(`✅ Knowledge updated with fileUrl`);
-      } else {
-        console.log(`⚠️  No fileUrl to update - PDF upload may have failed`);
       }
 
-      // 4. Queue RAG upload in background
+      // 8. Create temporary text files for chunks
+      const chunkFilePaths: string[] = [];
+      for (let i = 0; i < chunks.length; i++) {
+        const chunkPath = path.join(RAG_TEMP_DIR, `chunk_${knowledge.id}_${i}.txt`);
+        fs.writeFileSync(chunkPath, chunks[i]);
+        chunkFilePaths.push(chunkPath);
+      }
+
+      // 9. Queue RAG upload task for chunks
       backgroundTaskService.queueTask('UPLOAD_RAG', knowledge.id, {
-        tempFilePath: tempFile,
+        tempFilePaths: chunkFilePaths,
         displayName: title || filename.substring(0, 100),
-        description: description || `PDF: ${filename}`,
+        description: description || `Extracted from: ${filename}`,
       });
+
+      // Clean up the original temp docx file (chunks will be cleaned up by the background task)
+      try { fs.unlinkSync(tempDocxPath); } catch (e) { }
 
       (res as any).status(201).json({
         success: true,
-        message: 'PDF uploaded successfully',
+        message: 'Document uploaded and processing started',
         data: {
           id: knowledge.id,
           title: knowledge.question,
           filename,
-          type: 'pdf',
+          type: 'docx',
           fileUrl,
+          chunksCount: chunks.length,
           createdAt: knowledge.createdAt,
         }
       });
     } catch (error: any) {
-      console.error('❌ PDF upload error:', error);
+      console.error('❌ Docx upload processing error:', error);
       (res as any).status(500).json({ success: false, error: error.message });
     }
   } catch (error: any) {
-    console.error('❌ PDF upload error:', error);
+    console.error('❌ Docx upload error:', error);
+    (res as any).status(500).json({ success: false, error: error.message });
+  }
+};
+
+/**
+ * @deprecated Use uploadDocx instead
+ * PDF support is being replaced by Docx
+ */
+export const uploadPDF = async (req: Request, res: Response): Promise<void> => {
+  (res as any).status(400).json({
+    success: false,
+    error: 'PDF support has been replaced by DOCX support. Please upload .docx files instead.'
+  });
+};
+
+/**
+ * POST /api/knowledge/batch-delete
+ */
+export const batchDeleteKnowledge = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { ids } = req.body;
+    if (!Array.isArray(ids) || ids.length === 0) {
+      (res as any).status(400).json({ success: false, error: 'No IDs provided' });
+      return;
+    }
+
+    const results = { successful: 0, failed: 0 };
+
+    for (const id of ids) {
+      try {
+        const knowledge = await firebaseService.getKnowledgeById(id);
+        if (knowledge) {
+          await firebaseService.deleteKnowledge(id);
+          if (knowledge.type === 'pdf' || knowledge.type === 'docx') {
+            try { await firebaseService.deletePdfFile(id); } catch (e) { }
+          }
+          if (knowledge.ragFileIds && knowledge.ragFileIds.length > 0) {
+            backgroundTaskService.queueTask('DELETE_RAG', id, { ragFileIds: knowledge.ragFileIds });
+          } else if (knowledge.ragFileId) {
+            backgroundTaskService.queueTask('DELETE_RAG', id, { ragFileId: knowledge.ragFileId });
+          }
+          results.successful++;
+        } else {
+          results.failed++;
+        }
+      } catch (err: any) {
+        results.failed++;
+      }
+    }
+
+    (res as any).json({ success: true, message: `Deleted ${results.successful} items`, data: results });
+  } catch (error: any) {
     (res as any).status(500).json({ success: false, error: error.message });
   }
 };

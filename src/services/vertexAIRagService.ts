@@ -11,7 +11,7 @@ interface RagFile {
   name: string;
   displayName: string;
   description?: string;
-  type: 'manual' | 'csv' | 'pdf' | 'docx';
+  type: 'manual' | 'csv' | 'pdf' | 'docx' | 'txt';
   createdAt: string;
   updatedAt: string;
   status: 'PROCESSING' | 'COMPLETED' | 'FAILED';
@@ -140,6 +140,7 @@ class VertexAIRagService {
         displayName: displayName || path.basename(filePath),
         description,
         directUploadSource: { content },
+        mimeType: this.getMimeType(filePath),
       },
     }, {
       headers: {
@@ -236,18 +237,33 @@ Use this EXACT phrase if you don't know the answer: "${FALLBACK_MESSAGE}"
         },
       });
 
-      let answer = res.data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      console.log('[RAG Debug] API Response Status:', res.status);
+      console.log('[RAG Debug] Candidates length:', res.data?.candidates?.length);
+
+      const candidate = res.data?.candidates?.[0];
+      if (candidate?.finishReason) {
+        console.log('[RAG Debug] Finish Reason:', candidate.finishReason);
+      }
+
+      let answer = candidate?.content?.parts?.[0]?.text || '';
+
+      // Check if citations/grounding metadata exists
+      if (res.data?.candidates?.[0]?.groundingMetadata) {
+        console.log('[RAG Debug] Grounding Metadata found!');
+      }
 
       // Fallback response if no answer is generated
       if (!answer || answer.length < 15) {
+        console.warn('[RAG Debug] No answer generated or too short. Returning fallback.');
         answer = FALLBACK_MESSAGE;
       }
-
-
 
       return answer;
     } catch (err: any) {
       console.error('[RAG] Error:', err.message);
+      if (err.response) {
+        console.error('[RAG] Response data:', JSON.stringify(err.response.data, null, 2));
+      }
       return FALLBACK_MESSAGE;
     }
   }
@@ -312,12 +328,54 @@ Use this EXACT phrase if you don't know the answer: "${FALLBACK_MESSAGE}"
     }
   }
 
-  private getFileType(filename: any): 'manual' | 'csv' | 'pdf' | 'docx' {
+  async listFiles(): Promise<any[]> {
+    if (!this.initialized || !this.client) throw new Error('Not initialized');
+
+    const url = `${this.config.endpoint}/projects/${this.config.projectId}/locations/${this.config.location}/ragCorpora/${this.config.corpusId}/ragFiles`;
+    const res = await this.client.get(url);
+    return res.data.ragFiles || [];
+  }
+
+  async getFile(fileId: string): Promise<any> {
+    if (!this.initialized || !this.client) throw new Error('Not initialized');
+
+    const url = `${this.config.endpoint}/projects/${this.config.projectId}/locations/${this.config.location}/ragCorpora/${this.config.corpusId}/ragFiles/${fileId}`;
+    const res = await this.client.get(url);
+    return res.data;
+  }
+
+  /**
+   * Returns a list of all files in the corpus with their current indexing status.
+   */
+  async getCorpusStatus(): Promise<any> {
+    const files = await this.listFiles();
+    return files.map(f => ({
+      id: f.name.split('/').pop(),
+      displayName: f.displayName,
+      state: f.ragFileConfig?.state || 'UNKNOWN',
+      error: f.ragFileConfig?.error?.message
+    }));
+  }
+
+  private getMimeType(filename: string): string {
+    const ext = path.extname(filename).toLowerCase();
+    switch (ext) {
+      case '.csv': return 'text/csv';
+      case '.docx': return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+      case '.doc': return 'application/msword';
+      case '.pdf': return 'application/pdf';
+      case '.txt': return 'text/plain';
+      default: return 'text/plain';
+    }
+  }
+
+  private getFileType(filename: any): 'manual' | 'csv' | 'pdf' | 'docx' | 'txt' {
     if (typeof filename !== 'string') return 'manual';
     const ext = path.extname(filename).toLowerCase();
     if (ext === '.csv') return 'csv';
     if (ext === '.docx' || ext === '.doc') return 'docx';
     if (ext === '.pdf') return 'pdf';
+    if (ext === '.txt') return 'txt';
     return 'manual';
   }
 
