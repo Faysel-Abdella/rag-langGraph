@@ -23,4 +23,7 @@ router.delete('/escalations/:id', EscalationController.deleteEscalation);
 // Update status
 router.patch('/escalations/:id/status', EscalationController.updateStatus);
 
+// Batch delete
+router.post('/escalations/batch-delete', EscalationController.batchDelete);
+
 export default router;

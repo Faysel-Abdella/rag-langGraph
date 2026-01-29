@@ -5,6 +5,7 @@
 
 import { Router } from 'express';
 import {
+  batchDeleteKnowledge,
   createKnowledge,
   deleteKnowledge,
   getAllKnowledge,
@@ -34,6 +35,9 @@ router.put('/api/knowledge/:id', updateKnowledge);
 
 // Delete knowledge item
 router.delete('/api/knowledge/:id', deleteKnowledge);
+
+// Batch delete
+router.post('/api/knowledge/batch-delete', batchDeleteKnowledge);
 
 // Upload CSV
 router.post('/api/knowledge/upload/csv', uploadCSV);

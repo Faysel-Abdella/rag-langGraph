@@ -4,6 +4,7 @@ class KnowledgeBase {
    static currentPage = 1;
    static itemsPerPage = 8;
    static currentSortType = 'all'; // Default sort/filter type
+   static selectedIds = new Set();
 
    static render() {
       return `
@@ -67,7 +68,7 @@ class KnowledgeBase {
               <thead class="bg-gray-50/50 border-b border-gray-100">
                  <tr>
                     <th class="w-16 p-5 text-center">
-                       <input type="checkbox" class="w-5 h-5 rounded border-gray-300 text-[#E5A000] focus:ring-[#E5A000] cursor-pointer">
+                       <input type="checkbox" id="kb-select-all" class="w-5 h-5 rounded border-gray-300 text-[#E5A000] focus:ring-[#E5A000] cursor-pointer">
                     </th>
                     <th class="text-left py-5 px-2 text-[13px] font-semibold text-gray-500">Question</th>
                     <th class="text-left py-5 px-4 text-[13px] font-semibold text-gray-500">Answer</th>
@@ -119,6 +120,26 @@ class KnowledgeBase {
         </div>
 
         ${this.renderModalPlaceholder()}
+        
+        <!-- Bulk Action Bar -->
+        <div id="kb-bulk-bar" class="fixed bottom-8 left-1/2 -translate-x-1/2 bg-[#1E293B] text-white px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-6 z-[100] transition-all duration-300 translate-y-32 opacity-0">
+           <div class="flex items-center gap-3 border-r border-gray-700 pr-6">
+              <span class="bg-[#E5A000] text-white w-6 h-6 rounded-full flex items-center justify-center text-[12px] font-bold" id="kb-selected-count">0</span>
+              <span class="text-[14px] font-medium">items selected</span>
+           </div>
+           <div class="flex items-center gap-2">
+              <button id="kb-bulk-delete" class="flex items-center gap-2 px-4 py-2 hover:bg-red-500/10 text-red-400 rounded-lg transition-colors text-[14px] font-semibold">
+                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="3 6 5 6 21 6"></polyline>
+                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                 </svg>
+                 Delete Selected
+              </button>
+              <button id="kb-clear-selection" class="px-4 py-2 hover:bg-gray-700 rounded-lg transition-colors text-[14px] font-medium text-gray-400">
+                 Cancel
+              </button>
+           </div>
+        </div>
       </div>
     `;
    }
@@ -129,9 +150,9 @@ class KnowledgeBase {
       }
 
       return data.map(row => `
-      <tr class="group hover:bg-gray-50/50 transition-colors" data-id="${this.escapeHtml(row.id)}">
+      <tr class="group hover:bg-gray-50/50 transition-colors ${this.selectedIds.has(String(row.id)) ? 'bg-amber-50/50' : ''}" data-id="${this.escapeHtml(row.id)}">
         <td class="p-5 text-center">
-           <input type="checkbox" class="w-5 h-5 rounded border-gray-300 text-[#E5A000] focus:ring-[#E5A000] cursor-pointer opacity-40 group-hover:opacity-100 transition-opacity">
+           <input type="checkbox" class="kb-row-checkbox w-5 h-5 rounded border-gray-300 text-[#E5A000] focus:ring-[#E5A000] cursor-pointer ${this.selectedIds.has(String(row.id)) ? 'opacity-100' : 'opacity-40'} group-hover:opacity-100 transition-opacity" ${this.selectedIds.has(String(row.id)) ? 'checked' : ''} data-id="${this.escapeHtml(row.id)}">
         </td>
         <td class="py-5 px-2">
            <div class="flex items-center gap-3">
@@ -396,6 +417,7 @@ class KnowledgeBase {
       this.setupPaginationListeners();
       this.setupSearchListener();
       this.setupSortListener();
+      this.setupSelectionListeners();
       this.injectModal();
    }
 
@@ -1326,7 +1348,7 @@ class KnowledgeBase {
       }
 
       // Helper methods exposed
-      this.openEditModal = (item) => {
+      KnowledgeBase.openEditModal = (item) => {
          editingItemId = item.id;
          editQuestionInput.value = item.question;
          editAnswerInput.value = item.answer;
@@ -1334,9 +1356,121 @@ class KnowledgeBase {
          showView(viewEdit);
       };
 
-      this.openDeleteModal = () => {
+      KnowledgeBase.openDeleteModal = () => {
          openModal();
          showView(viewDelete);
       };
    }
+
+   static setupSelectionListeners() {
+      const selectAll = document.getElementById('kb-select-all');
+      const tableBody = document.getElementById('kb-table-body');
+      const bulkDeleteBtn = document.getElementById('kb-bulk-delete');
+      const clearBtn = document.getElementById('kb-clear-selection');
+
+      if (selectAll) {
+         selectAll.addEventListener('change', (e) => {
+            const isChecked = e.target.checked;
+            const checkboxes = tableBody.querySelectorAll('.kb-row-checkbox');
+            checkboxes.forEach(cb => {
+               cb.checked = isChecked;
+               const id = cb.dataset.id;
+               if (isChecked) this.selectedIds.add(id);
+               else this.selectedIds.delete(id);
+            });
+            this.updateBulkBar();
+            this.updateRowsHighlight();
+         });
+      }
+
+      if (tableBody) {
+         tableBody.addEventListener('change', (e) => {
+            if (e.target.classList.contains('kb-row-checkbox')) {
+               const id = e.target.dataset.id;
+               if (e.target.checked) this.selectedIds.add(id);
+               else {
+                  this.selectedIds.delete(id);
+                  if (selectAll) selectAll.checked = false;
+               }
+               this.updateBulkBar();
+               this.updateRowsHighlight();
+            }
+         });
+      }
+
+      if (bulkDeleteBtn) {
+         bulkDeleteBtn.addEventListener('click', () => {
+            if (confirm(`Are you sure you want to delete ${this.selectedIds.size} selected items?`)) {
+               this.deleteSelected();
+            }
+         });
+      }
+
+      if (clearBtn) {
+         clearBtn.addEventListener('click', () => {
+            this.selectedIds.clear();
+            if (selectAll) selectAll.checked = false;
+            const checkboxes = tableBody.querySelectorAll('.kb-row-checkbox');
+            checkboxes.forEach(cb => cb.checked = false);
+            this.updateBulkBar();
+            this.updateRowsHighlight();
+         });
+      }
+   }
+
+   static updateBulkBar() {
+      const bar = document.getElementById('kb-bulk-bar');
+      const countEl = document.getElementById('kb-selected-count');
+      const count = this.selectedIds.size;
+
+      if (!bar || !countEl) return;
+
+      if (count > 0) {
+         countEl.textContent = count;
+         bar.classList.remove('translate-y-32', 'opacity-0');
+         bar.classList.add('translate-y-0', 'opacity-100');
+      } else {
+         bar.classList.add('translate-y-32', 'opacity-0');
+         bar.classList.remove('translate-y-0', 'opacity-100');
+      }
+   }
+
+   static updateRowsHighlight() {
+      const rows = document.querySelectorAll('#kb-table-body tr');
+      rows.forEach(row => {
+         const id = row.dataset.id;
+         if (this.selectedIds.has(String(id))) {
+            row.classList.add('bg-amber-50/50');
+            row.querySelector('.kb-row-checkbox')?.classList.add('opacity-100');
+         } else {
+            row.classList.remove('bg-amber-50/50');
+            row.querySelector('.kb-row-checkbox')?.classList.remove('opacity-100');
+         }
+      });
+   }
+
+   static async deleteSelected() {
+      try {
+         const ids = Array.from(this.selectedIds);
+         const res = await fetch('/api/knowledge/batch-delete', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ids })
+         });
+         const result = await res.json();
+         if (result.success) {
+            this.showToast(result.message || 'Items deleted successfully', 'success');
+            this.selectedIds.clear();
+            this.updateBulkBar();
+            await this.loadDocuments();
+         } else {
+            this.showToast(result.error || 'Failed to delete items', 'error');
+         }
+      } catch (err) {
+         console.error(err);
+         this.showToast('Network error during batch delete', 'error');
+      }
+   }
+   static openEditModal = (item) => { };
+   static openDeleteModal = () => { };
 }

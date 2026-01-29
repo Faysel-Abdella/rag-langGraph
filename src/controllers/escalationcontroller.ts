@@ -107,4 +107,25 @@ export class EscalationController {
       res.status(500).json({ success: false, error: 'Failed to update status' });
     }
   }
+
+  /**
+   * POST /api/escalations/batch-delete
+   */
+  static async batchDelete(req: Request, res: Response): Promise<void> {
+    try {
+      const { ids } = req.body;
+      if (!Array.isArray(ids) || ids.length === 0) {
+        res.status(400).json({ success: false, error: 'No IDs provided' });
+        return;
+      }
+
+      for (const id of ids) {
+        await firebaseService.deleteEscalation(id);
+      }
+
+      res.json({ success: true, message: `Deleted ${ids.length} escalations` });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: 'Failed to delete escalations' });
+    }
+  }
 }

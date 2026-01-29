@@ -5,6 +5,7 @@ class Escalations {
    static itemsPerPage = 8;
    static currentStatusFilter = 'all';
    static currentSearchTerm = '';
+   static selectedIds = new Set();
 
    static render() {
       return `
@@ -57,13 +58,13 @@ class Escalations {
            </div>
         </div>
 
-        <!-- Table Container (Horizontal Scroll for Mobile) -->
+        <!-- Table Container -->
         <div class="bg-white border border-gray-200 rounded-2xl overflow-x-auto mb-6 shadow-sm min-h-[400px]">
            <table class="w-full min-w-[800px]">
               <thead class="bg-gray-50/50 border-b border-gray-100">
                  <tr>
                     <th class="w-16 p-5 text-center">
-                       <input type="checkbox" class="w-5 h-5 rounded border-gray-300 text-[#E5A000] focus:ring-[#E5A000] cursor-pointer">
+                       <input type="checkbox" id="esc-select-all" class="w-5 h-5 rounded border-gray-300 text-[#E5A000] focus:ring-[#E5A000] cursor-pointer">
                     </th>
                      <th class="text-left py-5 px-2 text-[13px] font-semibold text-gray-500">User</th>
                      <th class="text-left py-5 px-4 text-[13px] font-semibold text-gray-500">User Question</th>
@@ -96,23 +97,39 @@ class Escalations {
            
            <div class="flex items-center gap-4">
               <div class="flex items-center gap-1">
-                 <!-- First Page -->
                  <button id="esc-first-btn" class="w-8 h-8 flex items-center justify-center border border-gray-200 rounded-md hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors" disabled>
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="11 17 6 12 11 7"></polyline><polyline points="18 17 13 12 18 7"></polyline></svg>
                  </button>
-                 <!-- Previous Page -->
                  <button id="esc-prev-btn" class="w-8 h-8 flex items-center justify-center border border-gray-200 rounded-md hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors" disabled>
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"></polyline></svg>
                  </button>
-                 <!-- Next Page -->
                  <button id="esc-next-btn" class="w-8 h-8 flex items-center justify-center border border-gray-200 rounded-md hover:bg-gray-50 text-gray-600 transition-colors">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg>
                  </button>
-                 <!-- Last Page -->
                  <button id="esc-last-btn" class="w-8 h-8 flex items-center justify-center border border-gray-200 rounded-md hover:bg-gray-50 text-gray-600 transition-colors">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="13 17 18 12 13 7"></polyline><polyline points="6 17 11 12 6 7"></polyline></svg>
                  </button>
               </div>
+           </div>
+        </div>
+
+        <!-- Bulk Action Bar -->
+        <div id="esc-bulk-bar" class="fixed bottom-8 left-1/2 -translate-x-1/2 bg-[#1E293B] text-white px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-6 z-[100] transition-all duration-300 translate-y-32 opacity-0">
+           <div class="flex items-center gap-3 border-r border-gray-700 pr-6">
+              <span class="bg-[#E5A000] text-white w-6 h-6 rounded-full flex items-center justify-center text-[12px] font-bold" id="esc-selected-count">0</span>
+              <span class="text-[14px] font-medium">items selected</span>
+           </div>
+           <div class="flex items-center gap-2">
+              <button id="esc-bulk-delete" class="flex items-center gap-2 px-4 py-2 hover:bg-red-500/10 text-red-400 rounded-lg transition-colors text-[14px] font-semibold">
+                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="3 6 5 6 21 6"></polyline>
+                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                 </svg>
+                 Delete Selected
+              </button>
+              <button id="esc-clear-selection" class="px-4 py-2 hover:bg-gray-700 rounded-lg transition-colors text-[14px] font-medium text-gray-400">
+                 Cancel
+              </button>
            </div>
         </div>
       </div>
@@ -125,9 +142,9 @@ class Escalations {
       }
 
       return data.map(row => `
-      <tr class="group hover:bg-gray-50/50 transition-colors">
+      <tr class="group hover:bg-gray-50/50 transition-colors ${this.selectedIds.has(String(row.id)) ? 'bg-amber-50/50' : ''}">
         <td class="p-5 text-center">
-           <input type="checkbox" class="w-5 h-5 rounded border-gray-300 text-[#E5A000] focus:ring-[#E5A000] cursor-pointer opacity-40 group-hover:opacity-100 transition-opacity">
+           <input type="checkbox" class="esc-row-checkbox w-5 h-5 rounded border-gray-300 text-[#E5A000] focus:ring-[#E5A000] cursor-pointer ${this.selectedIds.has(String(row.id)) ? 'opacity-100' : 'opacity-40'} group-hover:opacity-100 transition-opacity" ${this.selectedIds.has(String(row.id)) ? 'checked' : ''} data-id="${row.id}">
         </td>
         <td class="py-5 px-2">
            <div class="flex items-center gap-3">
@@ -177,14 +194,12 @@ class Escalations {
    }
 
    static async loadEscalations() {
-      const tbody = document.getElementById('escalations-table-body');
       try {
          const data = await window.apiService.getAllEscalations();
          this.allEscalations = Array.isArray(data) ? data : [];
          this.applyFilters();
       } catch (error) {
          console.error('Failed to load escalations:', error);
-         if (tbody) tbody.innerHTML = '<tr><td colspan="6" class="p-8 text-center text-red-500 text-sm">Failed to load escalations.</td></tr>';
       }
    }
 
@@ -194,12 +209,10 @@ class Escalations {
 
       let filtered = [...this.allEscalations];
 
-      // Status Filter
       if (this.currentStatusFilter && this.currentStatusFilter !== 'all') {
          filtered = filtered.filter(item => item.status === this.currentStatusFilter);
       }
 
-      // Search Filter
       if (searchTerm) {
          filtered = filtered.filter(item =>
             (item.user && item.user.toLowerCase().includes(searchTerm)) ||
@@ -208,7 +221,6 @@ class Escalations {
       }
 
       this.filteredData = filtered;
-      this.currentPage = 1;
       this.updateTable();
    }
 
@@ -222,8 +234,6 @@ class Escalations {
       const totalItems = this.filteredData.length;
       const totalPages = Math.ceil(totalItems / this.itemsPerPage) || 1;
 
-      if (this.currentPage > totalPages) this.currentPage = totalPages;
-
       const startIndex = (this.currentPage - 1) * this.itemsPerPage;
       const endIndex = startIndex + this.itemsPerPage;
       const paginatedData = this.filteredData.slice(startIndex, endIndex);
@@ -232,10 +242,7 @@ class Escalations {
       if (pageInfo) pageInfo.textContent = `Page ${this.currentPage} of ${totalPages}`;
 
       tbody.innerHTML = this.renderRows(paginatedData);
-      this.updatePaginationButtons(totalPages);
-   }
 
-   static updatePaginationButtons(totalPages) {
       const firstBtn = document.getElementById('esc-first-btn');
       const prevBtn = document.getElementById('esc-prev-btn');
       const nextBtn = document.getElementById('esc-next-btn');
@@ -249,14 +256,16 @@ class Escalations {
 
    static afterRender() {
       this.loadEscalations();
+      this.setupSelectionListeners();
 
-      // Search
       const searchInput = document.getElementById('escalations-search');
       if (searchInput) {
-         searchInput.addEventListener('input', () => this.applyFilters());
+         searchInput.addEventListener('input', () => {
+            this.currentPage = 1;
+            this.applyFilters();
+         });
       }
 
-      // Filter Toggle
       const filterBtn = document.getElementById('esc-filter-btn');
       const filterMenu = document.getElementById('esc-filter-menu');
       const filterLabel = document.getElementById('esc-filter-label');
@@ -269,12 +278,10 @@ class Escalations {
 
          filterMenu.querySelectorAll('button').forEach(btn => {
             btn.addEventListener('click', () => {
-               const status = btn.dataset.status;
-               this.currentStatusFilter = status;
-               if (filterLabel) {
-                  filterLabel.textContent = status === 'all' ? 'All' : status.charAt(0).toUpperCase() + status.slice(1);
-               }
+               this.currentStatusFilter = btn.dataset.status;
+               if (filterLabel) filterLabel.textContent = this.currentStatusFilter === 'all' ? 'All' : this.currentStatusFilter.charAt(0).toUpperCase() + this.currentStatusFilter.slice(1);
                filterMenu.classList.add('hidden');
+               this.currentPage = 1;
                this.applyFilters();
             });
          });
@@ -282,7 +289,6 @@ class Escalations {
          document.addEventListener('click', () => filterMenu.classList.add('hidden'));
       }
 
-      // Limit Select
       const limitSelect = document.getElementById('escalations-limit-select');
       if (limitSelect) {
          limitSelect.addEventListener('change', (e) => {
@@ -292,41 +298,25 @@ class Escalations {
          });
       }
 
-      // Pagination
-      document.getElementById('esc-first-btn')?.addEventListener('click', () => {
-         this.currentPage = 1;
-         this.updateTable();
-      });
-      document.getElementById('esc-prev-btn')?.addEventListener('click', () => {
-         if (this.currentPage > 1) {
-            this.currentPage--;
-            this.updateTable();
-         }
-      });
+      document.getElementById('esc-first-btn')?.addEventListener('click', () => { this.currentPage = 1; this.updateTable(); });
+      document.getElementById('esc-prev-btn')?.addEventListener('click', () => { if (this.currentPage > 1) { this.currentPage--; this.updateTable(); } });
       document.getElementById('esc-next-btn')?.addEventListener('click', () => {
          const totalPages = Math.ceil(this.filteredData.length / this.itemsPerPage);
-         if (this.currentPage < totalPages) {
-            this.currentPage++;
-            this.updateTable();
-         }
+         if (this.currentPage < totalPages) { this.currentPage++; this.updateTable(); }
       });
       document.getElementById('esc-last-btn')?.addEventListener('click', () => {
          this.currentPage = Math.ceil(this.filteredData.length / this.itemsPerPage) || 1;
          this.updateTable();
       });
 
-      // Actions
       const tbody = document.getElementById('escalations-table-body');
       if (tbody) {
          tbody.addEventListener('click', async (e) => {
             const btn = e.target.closest('button[data-action]');
             if (!btn) return;
             const { action, id, status } = btn.dataset;
-
             if (action === 'delete') {
-               if (confirm('Delete this escalation?')) {
-                  await this.deleteEscalation(id);
-               }
+               if (confirm('Delete this escalation?')) await this.deleteEscalation(id);
             } else if (action === 'toggle-status') {
                await this.toggleStatus(id, status === 'open' ? 'resolved' : 'open');
             }
@@ -334,26 +324,109 @@ class Escalations {
       }
    }
 
-   static async deleteEscalation(id) {
+   static setupSelectionListeners() {
+      const selectAll = document.getElementById('esc-select-all');
+      const tableBody = document.getElementById('escalations-table-body');
+      const bulkDeleteBtn = document.getElementById('esc-bulk-delete');
+      const clearBtn = document.getElementById('esc-clear-selection');
+
+      if (selectAll) {
+         selectAll.addEventListener('change', (e) => {
+            const isChecked = e.target.checked;
+            const checkboxes = document.querySelectorAll('.esc-row-checkbox');
+            checkboxes.forEach(cb => {
+               cb.checked = isChecked;
+               if (isChecked) this.selectedIds.add(cb.dataset.id);
+               else this.selectedIds.delete(cb.dataset.id);
+            });
+            this.updateBulkBar();
+            this.updateRowsHighlight();
+         });
+      }
+
+      tableBody?.addEventListener('change', (e) => {
+         if (e.target.classList.contains('esc-row-checkbox')) {
+            if (e.target.checked) this.selectedIds.add(e.target.dataset.id);
+            else {
+               this.selectedIds.delete(e.target.dataset.id);
+               if (selectAll) selectAll.checked = false;
+            }
+            this.updateBulkBar();
+            this.updateRowsHighlight();
+         }
+      });
+
+      bulkDeleteBtn?.addEventListener('click', () => {
+         if (confirm(`Delete ${this.selectedIds.size} selected escalations?`)) this.deleteSelected();
+      });
+
+      clearBtn?.addEventListener('click', () => {
+         this.selectedIds.clear();
+         if (selectAll) selectAll.checked = false;
+         this.updateBulkBar();
+         this.updateRowsHighlight();
+         this.updateTable();
+      });
+   }
+
+   static updateBulkBar() {
+      const bar = document.getElementById('esc-bulk-bar');
+      const countEl = document.getElementById('esc-selected-count');
+      if (!bar || !countEl) return;
+      if (this.selectedIds.size > 0) {
+         countEl.textContent = this.selectedIds.size;
+         bar.classList.remove('translate-y-32', 'opacity-0');
+         bar.classList.add('translate-y-0', 'opacity-100');
+      } else {
+         bar.classList.add('translate-y-32', 'opacity-0');
+         bar.classList.remove('translate-y-0', 'opacity-100');
+      }
+   }
+
+   static updateRowsHighlight() {
+      const rows = document.querySelectorAll('#escalations-table-body tr');
+      rows.forEach(row => {
+         const checkbox = row.querySelector('.esc-row-checkbox');
+         if (checkbox && this.selectedIds.has(String(checkbox.dataset.id))) {
+            row.classList.add('bg-amber-50/50');
+            checkbox.classList.add('opacity-100');
+         } else {
+            row.classList.remove('bg-amber-50/50');
+            checkbox?.classList.remove('opacity-100');
+         }
+      });
+   }
+
+   static async deleteSelected() {
       try {
-         const res = await fetch(`/api/escalations/${id}`, { method: 'DELETE' });
+         const ids = Array.from(this.selectedIds);
+         const res = await fetch('/api/escalations/batch-delete', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ids })
+         });
          const result = await res.json();
-         if (result.success) this.loadEscalations();
+         if (result.success) {
+            this.selectedIds.clear();
+            this.updateBulkBar();
+            await this.loadEscalations();
+         }
       } catch (err) { console.error(err); }
+   }
+
+   static async deleteEscalation(id) {
+      await fetch(`/api/escalations/${id}`, { method: 'DELETE' });
+      await this.loadEscalations();
    }
 
    static async toggleStatus(id, newStatus) {
-      try {
-         const res = await fetch(`/api/escalations/${id}/status`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ status: newStatus })
-         });
-         const result = await res.json();
-         if (result.success) this.loadEscalations();
-      } catch (err) { console.error(err); }
+      await fetch(`/api/escalations/${id}/status`, {
+         method: 'PATCH',
+         headers: { 'Content-Type': 'application/json' },
+         body: JSON.stringify({ status: newStatus })
+      });
+      await this.loadEscalations();
    }
-
 
    static escapeHtml(text) {
       const div = document.createElement('div');

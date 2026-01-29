@@ -527,3 +527,44 @@ export const uploadPDF = async (req: Request, res: Response): Promise<void> => {
     error: 'PDF support has been replaced by DOCX support. Please upload .docx files instead.'
   });
 };
+
+/**
+ * POST /api/knowledge/batch-delete
+ */
+export const batchDeleteKnowledge = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { ids } = req.body;
+    if (!Array.isArray(ids) || ids.length === 0) {
+      (res as any).status(400).json({ success: false, error: 'No IDs provided' });
+      return;
+    }
+
+    const results = { successful: 0, failed: 0 };
+
+    for (const id of ids) {
+      try {
+        const knowledge = await firebaseService.getKnowledgeById(id);
+        if (knowledge) {
+          await firebaseService.deleteKnowledge(id);
+          if (knowledge.type === 'pdf' || knowledge.type === 'docx') {
+            try { await firebaseService.deletePdfFile(id); } catch (e) { }
+          }
+          if (knowledge.ragFileIds && knowledge.ragFileIds.length > 0) {
+            backgroundTaskService.queueTask('DELETE_RAG', id, { ragFileIds: knowledge.ragFileIds });
+          } else if (knowledge.ragFileId) {
+            backgroundTaskService.queueTask('DELETE_RAG', id, { ragFileId: knowledge.ragFileId });
+          }
+          results.successful++;
+        } else {
+          results.failed++;
+        }
+      } catch (err: any) {
+        results.failed++;
+      }
+    }
+
+    (res as any).json({ success: true, message: `Deleted ${results.successful} items`, data: results });
+  } catch (error: any) {
+    (res as any).status(500).json({ success: false, error: error.message });
+  }
+};
