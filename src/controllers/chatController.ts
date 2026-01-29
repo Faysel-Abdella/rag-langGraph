@@ -259,6 +259,22 @@ export class ChatController {
               status: 'open'
             });
 
+            // Send Email Notification to Admin
+            try {
+              const emailService = await import('../services/emailService').then(m => m.default);
+              await emailService.sendEscalationNotification({
+                userEmail: email,
+                question: questionToEscalate,
+                sessionId: sessionId,
+                conversationHistory: [
+                  ...history,
+                  { sender: 'user', content: message, timestamp: new Date().toISOString() }
+                ]
+              });
+            } catch (mailError) {
+              console.error('📧 Failed to trigger email notification:', mailError);
+            }
+
             // Send confirmation response immediately
             const confirmationMsg = "Thank you! We've created a support ticket for your issue. Our team will review it and contact you shortly via email.";
 

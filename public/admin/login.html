@@ -517,9 +517,43 @@
     }
 
     // Handle forgot password
-    window.handleForgotPassword = function(e) {
+    window.handleForgotPassword = async function(e) {
       e.preventDefault();
-      showError('Password reset coming soon. Please contact your administrator.');
+      
+      const email = emailInput.value.trim();
+      if (!email) {
+        showError('Please enter your email address first.');
+        emailInput.focus();
+        return;
+      }
+
+      // Show loading
+      const forgotLink = document.querySelector('.forgot-link');
+      const originalLinkText = forgotLink.textContent;
+      forgotLink.textContent = 'Sending...';
+      forgotLink.style.pointerEvents = 'none';
+
+      try {
+        const response = await fetch('/api/auth/forgot-password', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email }),
+        });
+
+        const data = await response.json();
+        
+        if (data.success) {
+          showSuccess(data.message || 'Reset link sent to your email!');
+        } else {
+          showError(data.error || 'Failed to send reset link.');
+        }
+      } catch (error) {
+        console.error('Forgot password error:', error);
+        showError('Network error. Please try again.');
+      } finally {
+        forgotLink.textContent = originalLinkText;
+        forgotLink.style.pointerEvents = 'auto';
+      }
     }
   </script>
 </body>
