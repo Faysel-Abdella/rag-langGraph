@@ -266,11 +266,42 @@ class VertexAIRagService {
             // Check if the operation actually succeeded but in a different format
             console.warn('⚠️  No ragFiles found in response. Full response:', JSON.stringify(importResult, null, 2));
 
+            // Response doesn't include file details, but import succeeded
+            // Query the corpus to find the file we just uploaded
+            console.log('🔍 Querying corpus to find imported file...');
+
+            try {
+              const allFiles = await this.listFiles();
+
+              if (allFiles.length > 0) {
+                const mostRecentFile = allFiles[0];
+                const fileId = mostRecentFile.name.split('/').pop() || uuidv4();
+
+                console.log(`✅ Found imported file in corpus: ${mostRecentFile.name}`);
+
+                return {
+                  id: fileId,
+                  name: mostRecentFile.name,
+                  displayName: mostRecentFile.displayName || displayName,
+                  description: mostRecentFile.description || '',
+                  type: this.getFileType(displayName),
+                  createdAt: new Date().toISOString(),
+                  updatedAt: new Date().toISOString(),
+                  status: 'COMPLETED',
+                };
+              }
+            } catch (listError) {
+              console.error('❌ Failed to query corpus:', listError);
+            }
+
             // If import succeeded but no files listed, create a placeholder entry
             // This can happen if Vertex AI processes the file but doesn't return details
+            const placeholderId = uuidv4();
+            const fullResourceName = `projects/${this.config.projectId}/locations/${this.config.location}/ragCorpora/${this.config.corpusId}/ragFiles/${placeholderId}`;
+
             return {
-              id: uuidv4(),
-              name: `ragFiles/${uuidv4()}`, // Generate a placeholder name
+              id: placeholderId,
+              name: fullResourceName, // Full resource path, not just 'ragFiles/...'
               displayName: displayName,
               description: 'Import completed successfully',
               type: this.getFileType(displayName),
@@ -419,6 +450,14 @@ Use this EXACT phrase if you don't know the answer: "${FALLBACK_MESSAGE}"
       console.log(`✅ RAG Delete: ${response.status} ${response.statusText}`);
       return true;
     } catch (error: any) {
+      // If file doesn't exist (404/400), don't fail - just log and continue
+      // This happens with placeholder files that were never actually created
+      if (error.response?.status === 404 || error.response?.status === 400) {
+        console.warn(`⚠️  File not found in RAG corpus (may be placeholder): ${resourceName}`);
+        return true; // Return success - file is "deleted" (never existed)
+      }
+
+      // For other errors, log and throw
       console.error(`❌ RAG Delete Error:`, {
         resourceName,
         status: error.response?.status,

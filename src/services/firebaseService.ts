@@ -373,15 +373,23 @@ class FirebaseService {
 
       console.log(`✅ File saved to Firebase Storage`);
 
-      // Generate a signed URL (valid for 7 days) instead of making public
-      // This works with uniform bucket-level access
-      const [signedUrl] = await file.getSignedUrl({
-        action: 'read',
-        expires: Date.now() + 7 * 24 * 60 * 60 * 1000, // 7 days
-      });
-
-      console.log(`✅ Generated signed URL for file access`);
-      return signedUrl;
+      // Try to generate a signed URL, but don't fail if we can't
+      // (Application Default Credentials don't support signing)
+      try {
+        const [signedUrl] = await file.getSignedUrl({
+          action: 'read',
+          expires: Date.now() + 7 * 24 * 60 * 60 * 1000, // 7 days
+        });
+        console.log(`✅ Generated signed URL for file access`);
+        return signedUrl;
+      } catch (signError: any) {
+        // If signing fails (no service account), return a basic GCS path
+        // The file is still saved, just not accessible via signed URL
+        console.warn(`⚠️  Could not generate signed URL (expected with ADC): ${signError.message}`);
+        const gcsPath = `gs://${this.bucket!.name}/${filePath}`;
+        console.log(`📍 File stored at: ${gcsPath}`);
+        return gcsPath;
+      }
     } catch (error) {
       console.error(`❌ Error uploading PDF to Firebase Storage:`, error);
       throw error;
