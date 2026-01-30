@@ -68,10 +68,6 @@ class EmailService {
                     <hr/>
                     <p><strong>User Email:</strong> ${userEmail}</p>
                     <p><strong>Session ID:</strong> ${sessionId}</p>
-                    <p><strong>Critical Question:</strong></p>
-                    <blockquote style="background: #f9f9f9; padding: 15px; border-left: 5px solid #E5A000;">
-                        ${question}
-                    </blockquote>
                     <p>The full conversation history is attached to this email.</p>
                     <br/>
                     <a href="${process.env.APP_URL || 'http://localhost:3000'}/admin/index.html#conversations/${sessionId}" 

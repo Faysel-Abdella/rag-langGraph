@@ -355,13 +355,31 @@ export class ChatController {
 
       // Type assertion to access the result
       const resultState = (result as any).__root__?.value as ChatState;
-      const answer = resultState?.answer || 'Sorry, I could not generate a response.';
+      let answer = resultState?.answer || 'Sorry, I could not generate a response.';
       const isCached = resultState?.cached || false;
+
+      // Extract and remove follow-up questions before streaming
+      let followupQuestions: string[] = [];
+      const followupMatch = answer.match(/<<<FOLLOWUP: (.*?)>>>/);
+      if (followupMatch) {
+        followupQuestions = followupMatch[1].split('|').map(q => q.trim()).filter(q => q);
+        answer = answer.replace(followupMatch[0], '').trim();
+      }
 
       console.log(`Generated answer (cached: ${isCached}): ${answer.substring(0, 100)}...`);
 
       // Stream the response with realistic typing animation
       await streamTextToResponse(res, answer, { isCached, sessionId });
+
+      // After streaming the main answer, send follow-up questions if any
+      if (followupQuestions.length > 0) {
+        const followupData = `<<<FOLLOWUP: ${followupQuestions.join(' | ')}>>>`;
+        res.write(`data: ${JSON.stringify({
+          chunk: followupData,
+          isCached,
+          sessionId
+        })}\n\n`);
+      }
 
       res.write('data: [DONE]\n\n');
       res.end();

@@ -572,7 +572,7 @@
           // Update metadata with timestamp
           const metadataNode = botMessageElement.querySelector('.message-metadata');
           if (metadataNode) {
-            metadataNode.innerText = `AI Agent • ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+            metadataNode.innerText = `Cashflow AI Agent • ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
           }
         }
 
