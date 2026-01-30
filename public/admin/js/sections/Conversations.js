@@ -1,4 +1,7 @@
 class Conversations {
+   static allConversations = [];
+   static selectedIds = new Set();
+   static currentConversationId = null;
    static render() {
       return `
       <div class="flex h-[calc(100vh-70px)] bg-white responsive-conversations-container">
@@ -18,6 +21,10 @@ class Conversations {
                </div>
                <div class="relative">
                   <input type="date" id="conv-date-filter" class="w-full px-4 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:border-[#E5A000] transition-all text-gray-600">
+               </div>
+               <div class="flex items-center gap-2">
+                  <button id="conv-delete-selected" class="px-3 py-1 rounded-md text-sm text-red-600 border border-red-200 hover:bg-red-50">Delete Selected</button>
+                  <button id="conv-delete-all" class="px-3 py-1 rounded-md text-sm text-red-600 border border-red-200 hover:bg-red-50">Delete All</button>
                </div>
             </div>
           </div>
@@ -95,7 +102,8 @@ class Conversations {
 
          if (data && (data.success || Array.isArray(data.conversations))) {
             this.allConversations = data.conversations || [];
-            this.renderConversationList(this.allConversations);
+               this.selectedIds.clear();
+               this.renderConversationList(this.allConversations);
 
             // Handle deep linking to a specific session
             if (window.app && window.app.currentParams && window.app.currentParams[0]) {
@@ -126,6 +134,7 @@ class Conversations {
          if (list) {
             list.innerHTML = '<div class="p-4 text-center text-red-500 text-sm">Failed to load conversations</div>';
          }
+         this.showToast('Failed to load conversations', 'error');
       }
    }
 
@@ -205,6 +214,7 @@ class Conversations {
 
          return `
             <div class="group flex items-start gap-4 p-4 rounded-l-2xl rounded-r-none hover:bg-gray-50 cursor-pointer border-transparent transition-all relative overflow-hidden mr-0 conversation-item" data-conversation-id="${conv.id}">
+               <input type="checkbox" class="conv-row-checkbox mr-3" data-id="${conv.id}" ${this.selectedIds.has(String(conv.id)) ? 'checked' : ''}>
                <div class="relative">
                  <div class="w-11 h-11 rounded-full bg-gray-50 border border-gray-200 flex items-center justify-center text-xs font-bold text-gray-600 overflow-hidden shrink-0">
                     <img src="${avatarUrl}" alt="${title}" class="w-full h-full object-cover">
@@ -284,6 +294,49 @@ class Conversations {
             if (sidebar) sidebar.style.display = 'flex';
          }
       });
+
+         // Selection handlers
+         const deleteSelectedBtn = document.getElementById('conv-delete-selected');
+         const deleteAllBtn = document.getElementById('conv-delete-all');
+
+         document.querySelectorAll('.conv-row-checkbox').forEach(cb => {
+            cb.addEventListener('change', (e) => {
+               const id = cb.dataset.id;
+               if (cb.checked) this.selectedIds.add(id);
+               else this.selectedIds.delete(id);
+            });
+         });
+
+         if (deleteSelectedBtn) {
+            deleteSelectedBtn.addEventListener('click', async () => {
+               if (this.selectedIds.size === 0) return;
+               const ok = await this.showConfirm(`Delete ${this.selectedIds.size} selected conversations?`);
+               if (!ok) return;
+               await this.deleteSelected();
+            });
+         }
+
+         if (deleteAllBtn) {
+            deleteAllBtn.addEventListener('click', async () => {
+               const ok = await this.showConfirm('Delete ALL conversations? This action cannot be undone.');
+               if (!ok) return;
+               await this.deleteAll();
+            });
+         }
+
+         // Right-click context menu for delete
+         conversationItems.forEach(item => {
+            item.addEventListener('contextmenu', async (e) => {
+               e.preventDefault();
+               const sessionId = item.dataset.conversationId;
+               // Show simple native confirm for now
+               const ok = await this.showConfirm('Delete this conversation?');
+               if (ok) {
+                  await this.deleteConversation(sessionId);
+                  await this.loadConversations();
+               }
+            });
+         });
    }
 
    static async loadConversationMessages(conversationId) {
@@ -392,4 +445,98 @@ class Conversations {
       div.textContent = text;
       return div.innerHTML;
    }
+
+     // Simple confirm modal that returns a promise
+     static showConfirm(message) {
+        return new Promise((resolve) => {
+           const overlay = document.createElement('div');
+           overlay.className = 'fixed inset-0 bg-black/40 z-[300] flex items-center justify-center';
+
+           const modal = document.createElement('div');
+           modal.className = 'bg-white rounded-lg p-6 w-[420px] shadow-lg text-center';
+           modal.innerHTML = `
+              <p class="text-gray-800 mb-4">${this.escapeHtml(message)}</p>
+              <div class="flex items-center justify-center gap-4">
+                 <button class="px-4 py-2 rounded-md bg-gray-100" id="confirm-cancel">Cancel</button>
+                 <button class="px-4 py-2 rounded-md bg-red-600 text-white" id="confirm-ok">Delete</button>
+              </div>
+           `;
+
+           overlay.appendChild(modal);
+           document.body.appendChild(overlay);
+
+           const cleanup = (result) => {
+              overlay.remove();
+              resolve(result);
+           };
+
+           modal.querySelector('#confirm-cancel').addEventListener('click', () => cleanup(false));
+           modal.querySelector('#confirm-ok').addEventListener('click', () => cleanup(true));
+        });
+     }
+
+     static async deleteConversation(sessionId) {
+        try {
+           const res = await fetch(`/api/conversations/${sessionId}`, { method: 'DELETE' });
+           const result = await res.json();
+           if (result.success) {
+              this.showToast('Conversation deleted', 'success');
+              await this.loadConversations();
+           } else {
+              this.showToast(result.error || 'Failed to delete conversation', 'error');
+           }
+        } catch (err) {
+           console.error('Failed to delete conversation:', err);
+           this.showToast('Failed to delete conversation', 'error');
+        }
+     }
+
+     static async deleteSelected() {
+        try {
+           const ids = Array.from(this.selectedIds);
+           const res = await fetch('/api/conversations/batch-delete', {
+              method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids })
+           });
+           const result = await res.json();
+           if (result.success) {
+              this.selectedIds.clear();
+              await this.loadConversations();
+              this.showToast(result.message || `Deleted ${ids.length} conversations`, 'success');
+           } else {
+              this.showToast(result.error || 'Failed to delete selected conversations', 'error');
+           }
+      } catch (err) { console.error('Failed to delete selected conversations:', err); this.showToast('Failed to delete selected conversations', 'error'); }
+     }
+
+     static async deleteAll() {
+        try {
+           const res = await fetch('/api/conversations', { method: 'DELETE' });
+           const result = await res.json();
+           if (result.success) {
+              this.selectedIds.clear();
+              await this.loadConversations();
+              this.showToast(result.message || 'All conversations deleted', 'success');
+           } else {
+              this.showToast(result.error || 'Failed to delete all conversations', 'error');
+           }
+      } catch (err) { console.error('Failed to delete all conversations:', err); this.showToast('Failed to delete all conversations', 'error'); }
+     }
+
+     static showToast(message, type = 'info') {
+        const toast = document.createElement('div');
+        toast.className = `fixed top-4 right-4 px-6 py-3 rounded-lg shadow-lg text-white z-[200] transition-all duration-300 transform translate-y-[-20px] opacity-0 ${type === 'success' ? 'bg-green-500' : type === 'error' ? 'bg-red-500' : 'bg-blue-500'}`;
+        toast.textContent = message;
+        document.body.appendChild(toast);
+
+        // Trigger animation
+        setTimeout(() => {
+           toast.classList.remove('translate-y-[-20px]', 'opacity-0');
+        }, 10);
+
+        // Remove after 3s
+        setTimeout(() => {
+           toast.classList.add('translate-y-[-20px]', 'opacity-0');
+           setTimeout(() => toast.remove(), 300);
+        }, 3000);
+     }
 }
