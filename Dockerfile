@@ -21,6 +21,9 @@ RUN npm install --production
 
 COPY --from=builder /app/dist ./dist
 
+# Copy static/public files
+COPY public ./public
+
 ENV PORT=8080
 EXPOSE 8080
 
